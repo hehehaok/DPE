@@ -1,4 +1,9 @@
 # DPE
+## 环境信息
+- python       2.7.13
+- numpy        1.15.1
+- matplotlib   2.2.5
+- scipy        1.1.0
 ## 使用数据
 - 数据来源：FGI-GSRx提供的参考数据 [数据链接](https://tiedostopalvelu.maanmittauslaitos.fi/tp/julkinen/lataus/tuotteet/FGI-GSRx-OS-DATAFILES/FGI-GSRx%20Raw%20IQ%20Data/GPSL1GalileoE1) 【注意下载后将文件名改为：static_opensky_20230421_190000_usrp6_26000kHz.dat】
 - 对应配置参数文件：settings2.py 【注意要将其中的datpath改为数据所在路径】
