@@ -1,7 +1,7 @@
 #YYYYMMDD_HHMMSS_usrp%d_xxxxkHz.dat
 
 refname    = 'static_opensky_'  # Simulated
-datname    = '20230421_190000'
+datname    = '20230503_190000'
 descriptor = 'Talbot_rooftop_4hr_T_big=1'
 fs = 26e6
 fi = 6.39e6
@@ -19,7 +19,7 @@ acq_only      = False
 prn_list = [13, 15, 17, 24, 28] # Simulated
 # prn_list = [15] # Simulated
 
-datpath  = 'D:/study/DPEdata/'
+datpath  = 'D:/academic/DPEdata/'
 predir   = './pre-simulator/'
 postdir  = './post-simulator/'
 
@@ -53,4 +53,4 @@ try:
     os.makedirs(postpath)
 except:
     if os.listdir(postpath):
-        print 'Warning:',postpath,'not an empty directory.'
+        print('Warning:',postpath,'not an empty directory.')
