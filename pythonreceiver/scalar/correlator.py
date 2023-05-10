@@ -390,7 +390,7 @@ class Correlator():
 
             # #### convert to baseband with current fi and ri (velocities)
 
-            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*fi*rawfile.time_idc) + (2.0*PI*ri)))
+            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))
 
             baseband_no_flip = raw*doppler_wipeoff_signal
             #baseband_flip    = raw_flip*doppler_wipeoff_signal
@@ -428,7 +428,7 @@ class Correlator():
         else:
 
             raw = np.array(rawfile.rawsnippet)
-            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*fi*rawfile.time_idc) + (2.0*PI*ri)))
+            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))
 
             baseband = raw*doppler_wipeoff_signal
 

@@ -78,7 +78,7 @@ class scalar_thread (threading.Thread):
         for prn in self.rx.channels:
             try:
                 self.rx.parse_ephemerides(prn_list = [prn],m_start = 40)
-                self.rx.channels[prn].ephemerides.save_ephemerides(prepath + 'eph%d/channel%d.mat'%(self.ip,prn))
+                self.rx.channels[prn].ephemerides.save_ephemerides(dir+'/channel%d.mat' % prn, dir+'/channel%d.csv' % prn)
             except:
                 pass
         print('Scalar Tracking concluded.')
@@ -108,7 +108,7 @@ dp_usrp = [
             # 修改
             # abspath  = datpath + prefix[:15] + '_usrp'+str(ip)+'_2500kHz.dat',
             abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%int(fs/1e3),
-            fs = 2.5e6, fi = 0.0e6, ds = 1.0,
+            fs = fs, fi = fi, ds = 1.0,
             # 修改
             # datatype = np.dtype([('i', np.short), ('q', np.short)]),
             datatype = np.dtype([('i', np.int8)]),
