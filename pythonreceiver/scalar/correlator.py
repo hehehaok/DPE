@@ -42,8 +42,6 @@ class Correlator():
                       plot_signal = False):
         """Calls both coarse_acquisition and fine_frequency_acquisition.
         """
-        # 修改
-        doppler_search_matrix = doppler_search_matrix + rawfile.fi
 
         coarse_result_matrix, found, rc, fc, fi, cppr, cppm = self.coarse_acquisition(
                                                               rawfile, doppler_search_matrix, coherent, plot_signal)
@@ -90,9 +88,7 @@ class Correlator():
         max_code_idx = max_percode.argmax()
         max_dopp_idx = coarse_result_matrix_abs[:,max_code_idx].argmax()
         rc = L_CA-rawfile.code_idc[max_code_idx]
-        # 修改
-        # fi = doppler_search_matrix[max_dopp_idx, 0]
-        fi = doppler_search_matrix[max_dopp_idx,0]-rawfile.fi
+        fi = doppler_search_matrix[max_dopp_idx,0]
         fc = F_CA + rawfile.fcaid*fi
 
         # Mask maximum correlation, estimate peak statistics
@@ -131,7 +127,7 @@ class Correlator():
         max_carr_idx = np.abs(carr_signal_fft).argmax()
         fine_frequency_result = carr_signal_fft[max_carr_idx]
         ri = np.angle(fine_frequency_result)/(2.0*PI)
-        fi = rawfile.carr_fftidc[max_carr_idx]-rawfile.fi
+        fi = rawfile.carr_fftidc[max_carr_idx]
         fc = F_CA + rawfile.fcaid*fi
 
         return rc, ri, fc, fi
@@ -141,9 +137,7 @@ class Correlator():
         """
 
         # Carrier wipeoff
-        # 修改
-        # baseband = rawfile.rawsnippet*np.exp(-1j*((2.0*PI*fi*rawfile.time_idc) + (2.0*PI*ri)))
-        baseband = rawfile.rawsnippet*np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))
+        baseband = rawfile.rawsnippet*np.exp(-1j*((2.0*PI*fi*rawfile.time_idc) + (2.0*PI*ri)))
 
         # Produce indices
         fidc = rawfile.time_idc*fc + rc
@@ -390,7 +384,7 @@ class Correlator():
 
             # #### convert to baseband with current fi and ri (velocities)
 
-            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))
+            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*fi*rawfile.time_idc) + (2.0*PI*ri)))
 
             baseband_no_flip = raw*doppler_wipeoff_signal
             #baseband_flip    = raw_flip*doppler_wipeoff_signal
@@ -428,7 +422,7 @@ class Correlator():
         else:
 
             raw = np.array(rawfile.rawsnippet)
-            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))
+            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*fi*rawfile.time_idc) + (2.0*PI*ri)))
 
             baseband = raw*doppler_wipeoff_signal
 

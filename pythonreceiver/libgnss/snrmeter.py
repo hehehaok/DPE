@@ -56,11 +56,6 @@ class SignalNoiseMeter():
         sqrtarg = sqrtarg if sqrtarg > 0 else 0
         carrier_mean = math.sqrt(sqrtarg)
         noise_var = (z_mean - carrier_mean) / 2
-        # 修改
-        logarg = carrier_mean / (2 * self.averagingtime * noise_var)
-        # if noise_var != 0:
-        #     logarg = carrier_mean / (2 * self.averagingtime * noise_var)
-        # else:
-        #     logarg = 1
+        logarg = carrier_mean / (2*self.averagingtime*noise_var)
         logarg = logarg if logarg > 1 else 1
         return 10*math.log10(logarg.__abs__()) # the SNR

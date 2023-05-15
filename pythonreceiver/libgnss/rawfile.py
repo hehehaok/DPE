@@ -104,9 +104,6 @@ class RawFile():
                 self.format_rawsnippet = self.format_rawsnippet_datatype_arg_pi4
             if (self.datatype.fields.keys() == ['i','q']):
                 self.format_rawsnippet = self.format_rawsnippet_datatype_complex
-            # 修改
-            if (self.datatype.fields.keys() == ['i']):
-                self.format_rawsnippet = self.format_rawsnippet_datatype_real
             else:
                 print('Unknown datatype: %s'%(str(self.datatype)))
 
@@ -159,10 +156,6 @@ class RawFile():
     def format_rawsnippet_datatype_complex(self, rawsnippet):
         # assumes fi = 0, else shift to baseband
         return rawsnippet['i']+1j*rawsnippet['q']
-
-    def format_rawsnippet_datatype_real(self, rawsnippet):
-        # assumes fi = 0, else shift to baseband
-        return rawsnippet['i']
 
     def set_rawsnippet_settings(self, T, T_big, verbose=True):
 

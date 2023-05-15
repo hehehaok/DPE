@@ -4,11 +4,11 @@ refname    = 'static_opensky_'  # Simulated
 datname    = '20180704_190000'
 descriptor = 'Talbot_rooftop_4hr_T_big=1'
 fs = 2.5e6
-fi = 0.0e6
+
 cudarecv_handoff = 'handoff_params_usrp6' # Simulated
 
 ip_list       = [6] # Simulated
-start_time    = 5
+start_time    = 5 
 #  this will run from start_time to (start_time+proc_time)
 proc_time     = 30
 max_lead_time = 0
@@ -17,7 +17,7 @@ acq_only      = False
 prn_list = [2, 3, 6, 12, 17, 19, 24, 28] # Simulated
 
 
-datpath  = 'D:/study/DPEdata/'
+datpath  = '/home/ubuntu/repo/'
 predir   = './pre-simulator/'
 postdir  = './post-simulator/'
 
@@ -52,3 +52,4 @@ try:
 except:
     if os.listdir(postpath):
         print 'Warning:',postpath,'not an empty directory.'
+
