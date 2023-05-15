@@ -514,6 +514,7 @@ class Receiver():
 
         print('')
 
+        # 修改
         self.rawfile.seek_rawfile(-2*self.rawfile.S)
         self.rawfile.set_rawsnippet_settings(T=original_T, T_big=original_T_big)
 

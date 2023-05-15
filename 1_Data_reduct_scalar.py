@@ -1,5 +1,5 @@
-
-execfile('setting.py')
+# -*- coding: utf-8 -*-
+execfile('setting2.py')
 
 ### Main code starts
 
@@ -19,11 +19,10 @@ scalar_usrp = [
     receiver.Receiver(\
         rawfile.RawFile(
             metafile = None,
-            #abspath  = datpath + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%(fs/1000),
-            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%(fs/1000),
-            fs = fs, fi = 0.0e6, ds = 1.0,
-            datatype = np.dtype([('i', np.short), ('q', np.short)]),
-            #notes = 'Data set '+ prefix[:15]
+            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%int(fs/1e3),
+            fs = fs, fi = fi, ds = 1.0,
+            # datatype = np.dtype([('i', np.short), ('q', np.short)]),
+            datatype = np.dtype([('i', np.int8)]),
             notes = 'Data set '+ refname + prefix[:15]
         )
         , mcount_max = run_time * 1000 + 10000 + run_time * 2 * 1000
@@ -42,7 +41,7 @@ class scalar_thread (threading.Thread):
         self.total = 0
 
     def run(self):
-        print 'Thread Launched'
+        print('Thread Launched')
         first_dir  =  'end-of-1_usrp'+ str(self.ip)
         second_dir =  'end-of-%d_usrp'%proc_time+ str(self.ip)
 
