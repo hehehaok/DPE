@@ -22,7 +22,8 @@ scalar_usrp = [
             fs = fs, fi = fi, ds = 1.0,
             # 修改
             # datatype = np.dtype([('i', np.short), ('q', np.short)]),
-            datatype = np.dtype([('i', np.int8)]),
+            # datatype = np.dtype([('i', np.int8)]),
+            datatype = np.dtype([('i', np.int8), ('q', np.int8)]),
             notes = 'Data set '+ refname + prefix[:15]
         )
         , mcount_max = run_time * 1000 + 10000

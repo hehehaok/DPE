@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-execfile('setting2.py')
+execfile('setting4.py')
 
 ### Main code starts
 
@@ -19,17 +19,18 @@ scalar_usrp = [
     receiver.Receiver(\
         rawfile.RawFile(
             metafile = None,
-            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%int(fs/1e3),
+            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.bin'%int(fs/1e3),
             fs = fs, fi = fi, ds = 1.0,
             # datatype = np.dtype([('i', np.short), ('q', np.short)]),
-            datatype = np.dtype([('i', np.int8)]),
+            # datatype = np.dtype([('i', np.int8)]),
+            datatype = np.dtype([('i', np.int16), ('q', np.int16)]),
             notes = 'Data set '+ refname + prefix[:15]
         )
-        , mcount_max = run_time * 1000 + 10000 + run_time * 2 * 1000
+        , mcount_max = run_time * 1000 + 10000
     ) for ip in ip_list
 ]
 
-print 'Start scalar tracking @',init_time,'for',run_time
+print('Start scalar tracking @',init_time,'for',run_time)
 
 class scalar_thread (threading.Thread):
     def __init__(self,rx,ip,lock):
@@ -77,20 +78,23 @@ class scalar_thread (threading.Thread):
         for prn in self.rx.channels:
             try:
                 self.rx.parse_ephemerides(prn_list = [prn],m_start = 40)
-                self.rx.channels[prn].ephemerides
             except:
                 del_clist += [prn]
         self.rx.del_channels(del_clist)
 
         self.rx.save_scalar_handoff(prn_list, dirname=prepath, subdir=first_dir)
 
-        os.makedirs(prepath+'eph%d'%self.ip)
+        # 修改
+        # os.makedirs(prepath + 'eph%d'%self.ip)
+        dir = prepath + 'eph%d' % self.ip
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         for prn in self.rx.channels:
             if self.rx.channels[prn].ephemerides is not None:
                 self.rx.channels[prn].ephemerides.save_ephemerides(prepath + 'eph%d/channel%d.mat'%(self.ip,prn), prepath + 'eph%d/channel%d.csv'%(self.ip,prn))
 
 
-        print 'Scalar Tracking concluded.'
+        print ('Scalar Tracking concluded.')
         return
 
 lock= threading.Lock()
@@ -100,9 +104,9 @@ for st in s_threads:
 
 ### Block for scalar
 while any([t.running for t in s_threads]):
-    print 'Scalar running; total time',run_time
-    print 'Current time',[rx._mcount/1000.0 for rx in scalar_usrp]
+    print ('Scalar running; total time',run_time)
+    print ('Current time',[rx._mcount/1000.0 for rx in scalar_usrp])
     time.sleep(30)
 
-print 'Scalar tracking completed.  Ephemeris saved.'
+print ('Scalar tracking completed.  Ephemeris saved.')
 

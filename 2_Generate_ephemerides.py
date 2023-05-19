@@ -1,5 +1,5 @@
 
-execfile('setting.py')
+execfile('setting4.py')
 
 from pythonreceiver.libgnss.constants import *
 from pythonreceiver.libgnss import rawfile,utils,satpos
@@ -19,9 +19,11 @@ usrp = []
 for ip in ip_list:
     rfile = rawfile.RawFile(
         metafile= None,
-        abspath = datpath + prefix[:15]+'_usrp'+str(ip)+'_%dkHz.dat'%(fs/1e3),
-        fs = fs, fi = 0.0e6, ds = 1.0,
-        datatype = np.dtype([('i', np.short), ('q', np.short)]),
+        abspath=datpath + refname + prefix[:15] + '_usrp' + str(ip) + '_%dkHz.bin' % int(fs / 1e3),
+        fs=fs, fi=fi, ds=1.0,
+        # datatype = np.dtype([('i', np.short), ('q', np.short)]),
+        # datatype = np.dtype([('i', np.int8)]),
+        datatype=np.dtype([('i', np.int16), ('q', np.int16)]),
         notes = 'Data set '+ prefix[:-1]
     )
 
