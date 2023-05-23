@@ -24,6 +24,8 @@ def parse_ephemerides(channel, m_start, m_end):
     subframe_found = False
 
     for test in preamble_locations:
+        if test < 40:
+            test = test + 6000
         test_set = set([test,test+6000,test+6000*2,test+6000*3,test+6000*4])
         print(test_set,test_set.issubset(preamble_locations_set))
         if test_set.issubset(preamble_locations_set):
@@ -38,13 +40,15 @@ def parse_ephemerides(channel, m_start, m_end):
     subframe_polarities = np.sign(preamble_correlations[subframe_locations])
     print('polarities: '+str(subframe_polarities))
 
-    if not (np.any(subframe_polarities == [-1,-1,-1,-1,-1]) or np.any(subframe_polarities == [1,1,1,1,1])):
+    if not (np.all(subframe_polarities == [-1,-1,-1,-1,-1]) or np.all(subframe_polarities == [1,1,1,1,1])):
         print('Ephemerides decoding warning: Bit flip occured in between subframes')
 
     navbits_all = np.reshape(iP[subframe_locations[0]:(subframe_locations[0]+6000*5)],(1500,20))
     navbits_all = np.sign(np.sum(navbits_all,1))
 
     subframes = []
+    # 当第一个子帧的位置定位在小于40的地方时，会导致出错，且由于模块在try语句模块中，代码不会报错而是直接跳过
+    # first_d29d30 = np.reshape(channel.cp_sign[(cp_start+subframe_locations[0]-40):(cp_start+subframe_locations[0])], (2, 20))
     first_d29d30 = np.reshape(iP[(subframe_locations[0]-40):(subframe_locations[0])],(2,20))
     first_d29d30 = np.sign(np.sum(first_d29d30,1))
     d29 = first_d29d30[0]

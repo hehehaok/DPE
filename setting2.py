@@ -1,11 +1,14 @@
+# -*- coding: utf-8 -*-
 #YYYYMMDD_HHMMSS_usrp%d_xxxxkHz.dat
+# 芬兰数据
+import numpy as np
 
-refname    = 'static_opensky_'  # Simulated
-datname    = '20230503_190000'
-descriptor = 'Talbot_rooftop_4hr_T_big=1'
+refname    = 'finland_cleanStatic_'  # Simulated
+datname    = '2023_'
+descriptor = 'test1_'
 fs = 26e6
 fi = 6.39e6
-# fi = 0.0e6
+datatype = np.dtype([('i', np.int8)])
 cudarecv_handoff = 'handoff_params_usrp6' # Simulated
 
 ip_list       = [6] # Simulated
@@ -20,8 +23,8 @@ prn_list = [13, 15, 17, 24, 28] # Simulated
 # prn_list = [15] # Simulated
 
 datpath  = 'D:/academic/DPEdata/'
-predir   = './pre-simulator/'
-postdir  = './post-simulator/'
+predir   = './pre-simulator/finland_cleanStatic/'
+postdir  = './post-simulator/finland_cleanStatic/'
 
 
 

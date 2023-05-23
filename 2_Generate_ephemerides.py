@@ -39,7 +39,8 @@ for ip in ip_list:
     for prn in rx.channels:
         try:
             rx.parse_ephemerides(prn_list = [prn],m_start=40)
-            rx.channels[prn].ephemerides.save_ephemerides(prepath+'eph%d/channel%d.mat'%(ip,prn))
+            rx.channels[prn].ephemerides.save_ephemerides(prepath + 'eph%d/channel%d.mat' % (ip, prn),
+                                                          prepath + 'eph%d/channel%d.csv' % (ip, prn))
         except:
             pass
 

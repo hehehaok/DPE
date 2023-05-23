@@ -1,5 +1,5 @@
 
-execfile('setting.py')
+execfile('setting4.py')
 
 ### Main code starts
 
@@ -23,9 +23,11 @@ dp_usrp = [
     receiver.Receiver(\
         rawfile.RawFile(
             metafile = None,
-            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%(fs/1e3),
-            fs = fs, fi = 0.0e6, ds = 1.0,
-            datatype = np.dtype([('i', np.short), ('q', np.short)]),
+            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.bin'%(fs/1e3),
+            fs = fs, fi = fi, ds = 1.0,
+            # datatype = np.dtype([('i', np.short), ('q', np.short)]),
+            # datatype = np.dtype([('i', np.int8)]),
+            datatype=np.dtype([('i', np.int16), ('q', np.int16)]),
             notes = 'Data set '+ refname + prefix[:15]
         ), mcount_max = run_time * 50 + 5000
     ) for ip in ip_list
@@ -43,7 +45,7 @@ for i,dp_rx in enumerate(dp_usrp):
             del_clist += [prn]
     dp_rx.del_channels(del_clist)
 
-print 'DP Channels'
+print ('DP Channels')
 for i,rx in enumerate(dp_usrp):
     print ip_list[i], rx.channels.keys()
 
@@ -54,7 +56,7 @@ for rx in dp_usrp:
     rxTime_dp_init += [rxTime_a]
 
 rxTime_dp_offset = np.round((max(rxTime_dp_init)-np.array(rxTime_dp_init))*1000)
-print rxTime_dp_offset
+print (rxTime_dp_offset)
 for i,rx in enumerate(dp_usrp):
     rx.scalar_track(mtrack = int(rxTime_dp_offset[i]))
 
@@ -162,9 +164,9 @@ class rx_thread (threading.Thread):
                 self.rx.save_measurement_logs(dirname = postpath,subdir= 'end-of-dp_usrp%d'%self.ip)
                 print 'DP File saved, continue running.'
 
-        print 'DP Concluded.'
+        print ('DP Concluded.')
         elapse = time.time() - start
-        print elapse,'seconds elapsed for %ds data proc.'%np.ceil(self.rx.rawfile.T_big * mc)
+        print (elapse,'seconds elapsed for %ds data proc.'%np.ceil(self.rx.rawfile.T_big * mc))
         np.save(postpath+'usrp%d_X'%self.ip,np.array(self.X_list))
         np.save(postpath+'usrp%d_t'%self.ip,np.array(self.rxTime_list))
         #self.rx.save_measurement
@@ -190,10 +192,10 @@ for t in dp_thread:
     t.start()
 
 while any([t.running for t in dp_thread]):
-    print 'DP running; total time',run_time
-    print 'Current time',[t.counter/50.0 for t in dp_thread]
+    print ('DP running; total time',run_time)
+    print ('Current time',[t.counter/50.0 for t in dp_thread])
     time.sleep(30)
 
 
-print 'DP success!'
+print ('DP success!')
 
