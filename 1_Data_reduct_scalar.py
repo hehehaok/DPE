@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-execfile('setting_finland.py')
-
+# execfile('setting_finland.py')
+execfile('setting_210Atest1.py')
 ### Main code starts
 
 from pythonreceiver.libgnss.constants import *

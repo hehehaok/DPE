@@ -4,6 +4,7 @@
 from .constants import *
 
 import numpy as np
+from math import ceil
 import os.path
 
 class RawFile():
@@ -167,13 +168,13 @@ class RawFile():
     def set_rawsnippet_settings(self, T, T_big, verbose=True):
 
         self.T = T                                 # float (s)
-        self.N = int(round(self.T/T_CA))           # number of 1 millisecond blocks
-        self.S = int(round(T*self.fs))             # int   (samples)
+        self.N = int(ceil(self.T/T_CA))           # number of 1 millisecond blocks
+        self.S = int(ceil(T*self.fs))             # int   (samples)
         self.samp_idc = np.arange(0,self.S)        # int   array of indices (samples)
         self.time_idc = self.samp_idc / self.fs    # float array of indices (s)
         self.code_idc = self.time_idc * F_CA       # float array of indices (chips)
 
-        code_idc = np.arange(0,int(round(T_CA*self.fs))) / self.fs * F_CA # (chips)
+        code_idc = np.arange(0,int(ceil(T_CA*self.fs))) / self.fs * F_CA # (chips)
         code_idc = np.fft.fftshift(np.where(code_idc>=L_CA/2.0,code_idc-L_CA,code_idc))
         self.code_fftidc = code_idc
 
@@ -185,7 +186,7 @@ class RawFile():
         self.T_big  = T_big
         self.T_skip = self.T_big - self.T
 
-        self.S_big  = int(self.T_big*self.fs)
+        self.S_big  = int(ceil(self.T_big*self.fs))
         self.S_skip = self.S_big - self.S
 
         if verbose:

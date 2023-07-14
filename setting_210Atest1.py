@@ -6,8 +6,8 @@ refname    = '210A_cleanStatic_test1'  # Simulated
 filename = '210A_cleanStatic_test1.bin'
 datname    = '2023'
 descriptor = 'test1'
-fs = 16367667
-fi = 4123968
+fs = 16.367667e6
+fi = 4.123968e6
 datatype = np.dtype([('i', np.int8)])
 
 #########未用到的参数
