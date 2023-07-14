@@ -1,5 +1,5 @@
-
-execfile('setting4.py')
+# -*- coding: utf-8 -*-
+execfile('setting_finland.py')
 
 ### Main code starts
 
@@ -23,12 +23,10 @@ dp_usrp = [
     receiver.Receiver(\
         rawfile.RawFile(
             metafile = None,
-            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.bin'%(fs/1e3),
+            abspath  = datpath + filename,
             fs = fs, fi = fi, ds = 1.0,
-            # datatype = np.dtype([('i', np.short), ('q', np.short)]),
-            # datatype = np.dtype([('i', np.int8)]),
-            datatype=np.dtype([('i', np.int16), ('q', np.int16)]),
-            notes = 'Data set '+ refname + prefix[:15]
+            datatype = datatype,
+            notes = 'Data set '+ refname
         ), mcount_max = run_time * 50 + 5000
     ) for ip in ip_list
 ]
@@ -65,7 +63,7 @@ for rx in dp_usrp:
     rx.init_dp()
 
     # Load the initialization data from a file to match CUDARecv (overwriting imported logs)
-    rx.load_cudarecv_handoff(datpath + cudarecv_handoff + '.csv')
+    # rx.load_cudarecv_handoff(datpath + cudarecv_handoff + '.csv')
     #rx.perturb_init_ENU(np.matrix([100, 100, 100]).T, rx.ekf.X_ECEF)
     #rx.perturb_init_ECEF(np.matrix([95.2676, 107.907, 3.5931]).T, rx.ekf.X_ECEF)
 

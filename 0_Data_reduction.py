@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-execfile('setting2.py')
-
+# execfile('setting_finland.py')
+# execfile('setting_oak_cleanStatic.py')
+execfile('setting_210Atest1.py')
 ### Main code starts
 
 from pythonreceiver.libgnss.constants import *
@@ -18,13 +19,10 @@ scalar_usrp = [
     receiver.Receiver(\
         rawfile.RawFile(
             metafile = None,
-            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%int(fs/1e3),
+            abspath  = datpath + filename,
             fs = fs, fi = fi, ds = 1.0,
-            # 修改
-            # datatype = np.dtype([('i', np.short), ('q', np.short)]),
-            # datatype = np.dtype([('i', np.int8)]),
             datatype = datatype,
-            notes = 'Data set '+ refname + prefix[:15]
+            notes = 'Data set '+ refname
         )
         , mcount_max = run_time * 1000 + 10000
     ) for ip in ip_list
@@ -106,15 +104,10 @@ dp_usrp = [
     receiver.Receiver(\
         rawfile.RawFile(
             metafile = None,
-            # 修改
-            # abspath  = datpath + prefix[:15] + '_usrp'+str(ip)+'_2500kHz.dat',
-            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.dat'%int(fs/1e3),
+            abspath  = datpath + filename,
             fs = fs, fi = fi, ds = 1.0,
-            # 修改
-            # datatype = np.dtype([('i', np.short), ('q', np.short)]),
-            # datatype = np.dtype([('i', np.int8)]),
             datatype = datatype,
-            notes = 'Data set '+ prefix[:15]
+            notes = 'Data set '+ refname
         ), mcount_max = run_time * 50 + 5000
     ) for ip in ip_list
 ]
@@ -215,7 +208,6 @@ while any([t.running for t in dp_thread]):
     print ('DP running; total time',run_time)
     print ('Current time',[t.counter/50.0 for t in dp_thread])
     time.sleep(30)
-
 
 print ('DP success!')
 

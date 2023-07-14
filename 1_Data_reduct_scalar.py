@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-execfile('setting4.py')
+execfile('setting_finland.py')
 
 ### Main code starts
 
@@ -19,12 +19,10 @@ scalar_usrp = [
     receiver.Receiver(\
         rawfile.RawFile(
             metafile = None,
-            abspath  = datpath + refname + prefix[:15] + '_usrp'+str(ip)+'_%dkHz.bin'%int(fs/1e3),
+            abspath  = datpath + filename,
             fs = fs, fi = fi, ds = 1.0,
-            # datatype = np.dtype([('i', np.short), ('q', np.short)]),
-            # datatype = np.dtype([('i', np.int8)]),
-            datatype = np.dtype([('i', np.int16), ('q', np.int16)]),
-            notes = 'Data set '+ refname + prefix[:15]
+            datatype = datatype,
+            notes = 'Data set '+ refname
         )
         , mcount_max = run_time * 1000 + 10000
     ) for ip in ip_list
@@ -92,7 +90,6 @@ class scalar_thread (threading.Thread):
         for prn in self.rx.channels:
             if self.rx.channels[prn].ephemerides is not None:
                 self.rx.channels[prn].ephemerides.save_ephemerides(prepath + 'eph%d/channel%d.mat'%(self.ip,prn), prepath + 'eph%d/channel%d.csv'%(self.ip,prn))
-
 
         print ('Scalar Tracking concluded.')
         return

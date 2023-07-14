@@ -1,5 +1,5 @@
-
-execfile('setting4.py')
+# -*- coding: utf-8 -*-
+execfile('setting_finland.py')
 
 from pythonreceiver.libgnss.constants import *
 from pythonreceiver.libgnss import rawfile,utils,satpos
@@ -19,29 +19,28 @@ usrp = []
 for ip in ip_list:
     rfile = rawfile.RawFile(
         metafile= None,
-        abspath=datpath + refname + prefix[:15] + '_usrp' + str(ip) + '_%dkHz.bin' % int(fs / 1e3),
+        abspath=datpath + filename,
         fs=fs, fi=fi, ds=1.0,
-        # datatype = np.dtype([('i', np.short), ('q', np.short)]),
-        # datatype = np.dtype([('i', np.int8)]),
-        datatype=np.dtype([('i', np.int16), ('q', np.int16)]),
-        notes = 'Data set '+ prefix[:-1]
+        datatype=datatype,
+        notes='Data set ' + refname
     )
 
     usrp += [receiver.Receiver(rfile)]
 
     rx = usrp[-1]
     rx.load_measurement_logs(dirname = prepath, subdir= 'end-of-%d_usrp'%proc_time+ str(ip))
+
+    dir = prepath + 'eph%d'%ip
     try:
-        os.makedirs(prepath + 'eph%d'%ip)
+        os.makedirs(dir)
     except:
         pass
 
     for prn in rx.channels:
-        try:
-            rx.parse_ephemerides(prn_list = [prn],m_start=40)
-            rx.channels[prn].ephemerides.save_ephemerides(prepath + 'eph%d/channel%d.mat' % (ip, prn),
-                                                          prepath + 'eph%d/channel%d.csv' % (ip, prn))
-        except:
-            pass
+        rx.parse_ephemerides(prn_list = [prn], m_start=40)
+        if rx.channels[prn].ephemerides is not None:
+           rx.channels[prn].ephemerides.save_ephemerides(dir + '/channel%d.mat' % prn,
+                                                         dir + '/channel%d.csv' % prn)
+
 
 
