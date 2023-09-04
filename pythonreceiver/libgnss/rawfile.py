@@ -170,6 +170,8 @@ class RawFile():
         self.T = T                                 # float (s)
         self.N = int(ceil(self.T/T_CA))           # number of 1 millisecond blocks
         self.S = int(ceil(T*self.fs))             # int   (samples)
+        if self.N == 10:
+            self.S = int(ceil(self.S/10.0)*10)        # 由于210的采样率为16367667，为了让S最后为10的倍数，不得已这样做
         self.samp_idc = np.arange(0,self.S)        # int   array of indices (samples)
         self.time_idc = self.samp_idc / self.fs    # float array of indices (s)
         self.code_idc = self.time_idc * F_CA       # float array of indices (chips)
@@ -187,6 +189,8 @@ class RawFile():
         self.T_skip = self.T_big - self.T
 
         self.S_big  = int(ceil(self.T_big*self.fs))
+        if self.N == 10:
+            self.S_big = int(ceil(self.S_big / 10.0) * 10)
         self.S_skip = self.S_big - self.S
 
         if verbose:

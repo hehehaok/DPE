@@ -5,7 +5,7 @@ import numpy as np
 refname    = 'cleanStatic_gps_oak'  # Simulated
 filename = 'cleanStatic_gps_oak.bin'
 datname    = '2023'
-descriptor = 'test2'
+descriptor = 'test3'
 fs = 5e6
 fi = 0.0e6
 datatype = np.dtype([('i', np.int16), ('q', np.int16)])

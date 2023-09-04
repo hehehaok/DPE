@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
-# 210A静态贴片天线空旷处0_trans
+# setting_cpntbat_cleanStatic
 import numpy as np
 
 refname    = '210A_cleanStatic_test1'  # Simulated
 filename = '210A_cleanStatic_test1.bin'
 datname    = '2023'
 descriptor = 'test1'
-fs = 16.367667e6
-fi = 4.123968e6
+fs = 100e6
+fi = 62.58e6
 datatype = np.dtype([('i', np.int8)])
 
 #########未用到的参数
@@ -16,7 +16,7 @@ ip_list       = [6] # Simulated
 weekno        = 2258 # If running simulated data
 #########未用到的参数
 
-start_time    = 0
+start_time    = 10
 proc_time     = 40
 max_lead_time = 0
 
@@ -24,8 +24,8 @@ acq_only      = False
 prn_list = [4, 16, 22, 26, 27, 31] # Simulated
 
 datpath  = 'D:/academic/DPEdata/'
-predir   = './pre-simulator/210A_cleanStatic/'
-postdir  = './post-simulator/210A_cleanStatic/'
+predir   = './pre-simulator/CPNTBAT_cleanStatic/'
+postdir  = './post-simulator/CPNTBAT_cleanStatic/'
 
 
 

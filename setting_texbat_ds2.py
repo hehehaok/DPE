@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-# 210A静态贴片天线空旷处0_trans
+# oak静态数据
 import numpy as np
 
-refname    = '210A_cleanStatic_test1'  # Simulated
-filename = '210A_cleanStatic_test1.bin'
+refname    = 'cleanStatic_gps_texbatds2'  # Simulated
+filename = 'texbat_ds2.bin'
 datname    = '2023'
-descriptor = 'test1'
-fs = 16.367667e6
-fi = 4.123968e6
-datatype = np.dtype([('i', np.int8)])
+descriptor = 'test2'
+fs = 25e6
+fi = 0.0e6
+datatype = np.dtype([('i', np.int16), ('q', np.int16)])
 
 #########未用到的参数
 cudarecv_handoff = 'handoff_params_usrp6' # Simulated
@@ -16,16 +16,18 @@ ip_list       = [6] # Simulated
 weekno        = 2258 # If running simulated data
 #########未用到的参数
 
-start_time    = 0
+start_time    = 20
 proc_time     = 40
 max_lead_time = 0
 
 acq_only      = False
-prn_list = [4, 16, 22, 26, 27, 31] # Simulated
+# prn_list = [8, 10, 11, 12, 14, 15, 20, 21, 24, 25, 27, 31, 32] # Simulated
+prn_list = range(1,33) # Simulated
+# prn_list = [15] # Simulated
 
-datpath  = 'D:/academic/DPEdata/'
-predir   = './pre-simulator/210A_cleanStatic/'
-postdir  = './post-simulator/210A_cleanStatic/'
+datpath  = 'D:/DATA/TEXBAT/'
+predir   = './pre-simulator/texbat_ds2/'
+postdir  = './post-simulator/texbat_ds2/'
 
 
 

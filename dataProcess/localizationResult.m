@@ -22,7 +22,7 @@ switch dataFlag
     case 3
         dataDir = 'oak_cleanStatic/';
         truePosInLLA = [35.930544444, -84.310652778, 248.6000]; % 真实位置(纬度(北正南负) 经度(东正西负) 高度) oak静态
-        secDir = 'test2proc60s/';
+        secDir = 'test3proc60s/';
     otherwise
 end
 

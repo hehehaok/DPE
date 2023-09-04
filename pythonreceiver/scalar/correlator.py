@@ -98,7 +98,7 @@ class Correlator():
         # Mask maximum correlation, estimate peak statistics
         peak = max_percode[max_code_idx]
         mask_S = int(np.ceil(rawfile.fs/F_CA))
-        mask_idx = np.arange(-mask_S, mask_S+1) + max_code_idx
+        mask_idx = (np.arange(-mask_S, mask_S+1) + max_code_idx)%(np.shape(max_percode)[0])
 
         max_percode[mask_idx] = 0
         cppr = peak / np.max(max_percode)

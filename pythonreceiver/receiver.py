@@ -514,7 +514,6 @@ class Receiver():
 
         print('')
 
-        # 修改
         self.rawfile.seek_rawfile(-2*self.rawfile.S)
         self.rawfile.set_rawsnippet_settings(T=original_T, T_big=original_T_big)
 
@@ -995,22 +994,23 @@ class NavigationGuesses():
     
     def generate_spread_grid(self):
 
+        # dtmp = np.array([-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22])
         dtmp = np.array([-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22])
 
-        dZ = np.kron(dtmp * 5,np.ones(25))
+        dZ = np.kron(dtmp * 3,np.ones(25))
         dY = np.kron(dZ,np.ones(25))
         dX = np.kron(dY,np.ones(25))
         dY = np.tile(dY,25)
         dZ = np.tile(dZ,25*25)
         self.dX = np.mat(np.vstack((dX, dY, dZ)))
 
-        dT = dtmp * 6
+        dT = dtmp * 4
         self.dT = np.tile(dT, 25*25*25)
 
 
         dtmp = np.array([-12,-11,-10,-9,-8,-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7,8,9,10,11,12])
 
-        dZdot = np.kron(dtmp*5/10.0,np.ones(25))
+        dZdot = np.kron(dtmp*3/10.0,np.ones(25))
         dYdot = np.kron(dZdot,np.ones(25))
         dXdot = np.kron(dYdot,np.ones(25))
         dYdot = np.tile(dYdot,25)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-execfile('setting_finland.py')
+execfile('setting_cpntbat_cleanStatic.py')
 
 from pythonreceiver.libgnss.constants import *
 from pythonreceiver.libgnss import rawfile,utils,satpos
