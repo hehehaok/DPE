@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# execfile('setting_finland.py')
-execfile('setting_210Atest1.py')
+execfile('setting_finland.py')
+# execfile('setting_210Atest1.py')
 ### Main code starts
 
 from pythonreceiver.libgnss.constants import *
@@ -24,7 +24,7 @@ scalar_usrp = [
             datatype = datatype,
             notes = 'Data set '+ refname
         )
-        , mcount_max = run_time * 1000 + 10000
+        , mcount_max = run_time * 1000 + 1
     ) for ip in ip_list
 ]
 
@@ -52,16 +52,8 @@ class scalar_thread (threading.Thread):
             self.running = False
             return
 
-        self.rx.scalar_track(mtrack=1000)
-
         try:
-            lock.acquire()
-            self.rx.save_measurement_logs(dirname = prepath,subdir= first_dir)
-        finally:
-            lock.release()
-
-        try:
-            self.rx.scalar_track(mtrack=run_time * 1000 - 1000)
+            self.rx.scalar_track(mtrack=run_time * 1000)
         finally:
             lock.acquire()
             self.rx.save_measurement_logs(dirname = prepath,subdir= second_dir)

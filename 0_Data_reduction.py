@@ -24,7 +24,7 @@ scalar_usrp = [
             datatype = datatype,
             notes = 'Data set '+ refname
         )
-        , mcount_max = run_time * 1000 + 10000
+        , mcount_max = run_time * 1000
     ) for ip in ip_list
 ]
 
@@ -50,15 +50,8 @@ class scalar_thread (threading.Thread):
             self.running = False
             return
 
-        self.rx.scalar_track(mtrack=1000)
         try:
-            lock.acquire()
-            self.rx.save_measurement_logs(dirname = prepath,subdir= first_dir)
-        finally:
-            lock.release()
-
-        try:
-            self.rx.scalar_track(mtrack=run_time * 1000 - 1000)
+            self.rx.scalar_track(mtrack=run_time * 1000)
             #self.rx.scalar_track(mtrack=39000)
         finally:
             lock.acquire()
@@ -66,7 +59,6 @@ class scalar_thread (threading.Thread):
             lock.release()
             self.running = False
         self.rx.save_measurement_logs(dirname = prepath,subdir= second_dir)
-
 
         self.running = False
         # 修改

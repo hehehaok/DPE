@@ -22,8 +22,8 @@ max_lead_time = 0
 
 acq_only      = False
 # prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
-prn_list = [13, 15, 17, 24, 28] # Simulated
-# prn_list = [15] # Simulated
+# prn_list = [13, 15, 17, 24, 28] # Simulated
+prn_list = [15] # Simulated
 
 datpath  = 'D:/academic/DPEdata/'
 predir   = './pre-simulator/finland_cleanStatic/'
@@ -43,7 +43,7 @@ for d in dir_req:
 init_time = start_time
 run_time = proc_time
 
-prefix   = datname    + '_skip%d_start%d/'%(init_time,start_time)
+prefix   = descriptor    + '_skip%d_start%d/'%(init_time,start_time)
 prepath  = predir     + prefix
 postfix  = descriptor + 'proc%ds/'%run_time
 postpath = postdir    + postfix

@@ -42,9 +42,6 @@ class Correlator():
                       plot_signal = False):
         """Calls both coarse_acquisition and fine_frequency_acquisition.
         """
-        # 修改
-        doppler_search_matrix = doppler_search_matrix + rawfile.fi
-
         coarse_result_matrix, found, rc, fc, fi, cppr, cppm = self.coarse_acquisition(
                                                               rawfile, doppler_search_matrix, coherent, plot_signal)
 
@@ -62,7 +59,7 @@ class Correlator():
         """
 
         # Create 2D doppler wipeoff signal matrix
-        doppler_wipeoff_signal_matrix = np.array(np.exp(-1j*(2*PI*doppler_search_matrix*rawfile.time_idc)))
+        doppler_wipeoff_signal_matrix = np.array(np.exp(-1j*(2*PI*(doppler_search_matrix+rawfile.fi)*rawfile.time_idc)))
 
         # Create code replica signal
         code_replica_signal = self.chips.take(np.mod(np.floor(rawfile.code_idc),L_CA).astype(np.int32))
@@ -89,10 +86,8 @@ class Correlator():
         max_percode  = np.max(coarse_result_matrix_abs,axis=0)
         max_code_idx = max_percode.argmax()
         max_dopp_idx = coarse_result_matrix_abs[:,max_code_idx].argmax()
-        rc = L_CA-rawfile.code_idc[max_code_idx]
-        # 修改
-        # fi = doppler_search_matrix[max_dopp_idx, 0]
-        fi = doppler_search_matrix[max_dopp_idx,0]-rawfile.fi
+        rc = L_CA - rawfile.code_idc[max_code_idx]
+        fi = doppler_search_matrix[max_dopp_idx,0]
         fc = F_CA + rawfile.fcaid*fi
 
         # Mask maximum correlation, estimate peak statistics
@@ -117,9 +112,11 @@ class Correlator():
 
         code_idc = rawfile.time_idc*fc
         code_replica_signal = self.chips.take(np.mod(np.floor(code_idc+rc),L_CA).astype(np.int32))
+        if_wipeoff_signal_matrix = np.array(np.exp(-1j * (2 * PI * rawfile.fi * rawfile.time_idc)))
+        zero_IF_signal = rawfile.rawsnippet * if_wipeoff_signal_matrix
 
         # Code wipeoff to get carrier only signal
-        carr_signal = (rawfile.rawsnippet-np.mean(rawfile.rawsnippet)) * code_replica_signal
+        carr_signal = (zero_IF_signal-np.mean(zero_IF_signal)) * code_replica_signal
 
         # FFT to get carrier in frequency domain
         carr_signal_fft = np.fft.fftshift(np.fft.fft(carr_signal,rawfile.carr_fftpts))
@@ -131,7 +128,7 @@ class Correlator():
         max_carr_idx = np.abs(carr_signal_fft).argmax()
         fine_frequency_result = carr_signal_fft[max_carr_idx]
         ri = np.angle(fine_frequency_result)/(2.0*PI)
-        fi = rawfile.carr_fftidc[max_carr_idx]-rawfile.fi
+        fi = rawfile.carr_fftidc[max_carr_idx]
         fc = F_CA + rawfile.fcaid*fi
 
         return rc, ri, fc, fi
