@@ -41,9 +41,9 @@ for d in dir_req:
 init_time = start_time
 run_time = proc_time
 
-prefix   = datname    + '_skip%d_start%d/'%(init_time,start_time)
+prefix   = descriptor    + '_skip%ds_proc%ds/'%(init_time,run_time)
 prepath  = predir     + prefix
-postfix  = descriptor + 'proc%ds/'%run_time
+postfix  = descriptor + '_skip%ds_proc%ds/'%(init_time,run_time)
 postpath = postdir    + postfix
 try:
     os.makedirs(postpath)

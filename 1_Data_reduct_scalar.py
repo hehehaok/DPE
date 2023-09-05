@@ -72,7 +72,7 @@ class scalar_thread (threading.Thread):
                 del_clist += [prn]
         self.rx.del_channels(del_clist)
 
-        self.rx.save_scalar_handoff(prn_list, dirname=prepath, subdir=first_dir)
+        # self.rx.save_scalar_handoff(prn_list, dirname=prepath, subdir=first_dir)
 
         # 修改
         # os.makedirs(prepath + 'eph%d'%self.ip)

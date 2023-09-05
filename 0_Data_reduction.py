@@ -24,7 +24,7 @@ scalar_usrp = [
             datatype = datatype,
             notes = 'Data set '+ refname
         )
-        , mcount_max = run_time * 1000
+        , mcount_max = run_time * 1000 + 1
     ) for ip in ip_list
 ]
 
