@@ -30,25 +30,10 @@ if not load_acq:
     scalar_sdr.add_channels(prn_list)
     scalar_sdr.rawfile.seek_rawfile(init_time * 1000 * scalar_sdr.rawfile.S)
     acq_results = scalar_sdr.scalar_acquisition(prn_list)
-    if save_acq:
-        save_dic = {'acq_results': acq_results, 'prn_list': prn_list}
-        acq_dir = prepath + 'acq'
-        if not os.path.exists(acq_dir):
-            os.makedirs(acq_dir)
-        sio.savemat(os.path.join(acq_dir, 'acq.mat'), save_dic)
+    save_dic = {'acq_results': acq_results, 'prn_list': prn_list}
+    sio.savemat(os.path.join(acq_dir, 'acq.mat'), save_dic)
 else:
-    acq_dir = prepath + 'acq'
-    load_dic = sio.loadmat(os.path.join(acq_dir, 'acq.mat'))
-    acq_results = load_dic['acq_results']
-    prn_list = load_dic['prn_list']
-    scalar_sdr.add_channels(prn_list[0])
-    for prn_idx, prn in enumerate(prn_list[0]):
-        found, rc, ri, fc, fi, cppr, cppm = acq_results[prn_idx, :]
-        state = 'True' if found else 'False'
-        scalar_sdr.channels[prn].set_scalar_params(rc=rc, ri=ri, fc=fc, fi=fi)
-        print('PRN: %d, Found: %s, Code: %.2f chips, Carrier: %.2f cycles, '
-              'Doppler: %.2f Hz, Cppr: %.2f, Cppm: %.2f'
-              % (prn, state, rc, ri, fi, cppr, cppm))
+    scalar_sdr.load_acq_results(acq_dir)
 print ('Scalar acquisition completed.')
 
 # 跟踪
@@ -62,13 +47,13 @@ else:
     scalar_sdr.load_measurement_logs(dirname = prepath,subdir= second_dir)
 
 # 解算星历
-dir = prepath + 'eph'
-if not os.path.exists(dir):
-    os.makedirs(dir)
+dir_eph = prepath + 'eph'
+if not os.path.exists(dir_eph):
+    os.makedirs(dir_eph)
 for prn in scalar_sdr.channels:
     try:
         scalar_sdr.parse_ephemerides(prn_list=[prn], m_start=40)
-        scalar_sdr.channels[prn].ephemerides.save_ephemerides(dir + '/channel%d.mat' % prn, dir + '/channel%d.csv' % prn)
+        scalar_sdr.channels[prn].ephemerides.save_ephemerides(dir_eph + '/channel%d.mat' % prn, dir_eph + '/channel%d.csv' % prn)
     except:
         pass
 print ('Scalar tracking completed.  Launching DP.')
@@ -77,11 +62,11 @@ print ('Scalar tracking completed.  Launching DP.')
 
 # 初始化DPE接收机
 DPE_sdr = receiver.Receiver(rawfile.RawFile(metafile=None,
-                                               abspath=datpath + filename,
-                                               fs=fs, fi=fi, ds=1.0,
-                                               datatype=datatype,
-                                               notes='Data set ' + refname),
-                                               mcount_max = run_time * 50 + 5000)
+                                            abspath=datpath + filename,
+                                            fs=fs, fi=fi, ds=1.0,
+                                            datatype=datatype,
+                                            notes='Data set ' + refname),
+                                            mcount_max = DPE_run_time * 50 + 5000)
 
 DPE_sdr.load_measurement_logs(dirname = prepath, subdir= first_dir)
 
@@ -101,7 +86,7 @@ DPE_sdr.init_dp()
 print ('Init at', utils.ECEF_to_LLA(DPE_sdr.ekf.X_ECEF))
 
 counter = 0
-counter_max = int(run_time / DPE_sdr.rawfile.T_big)
+counter_max = int(DPE_run_time / DPE_sdr.rawfile.T_big)
 X_list = []
 rxTime_list = []
 csvfile = open(postpath+'usrp.csv','w')

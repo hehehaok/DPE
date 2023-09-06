@@ -802,11 +802,11 @@ class Receiver():
             save_dict['rawfile_'+name] = getattr(self.rawfile,name)
 
         save_dict['receiver_channels'] = sorted(self.channels.keys())
-        # try:
-        #     save_dict['corr_pos'] = self.corr_pos
-        #     save_dict['corr_vel'] = self.corr_vel
-        # except:
-        #     print('Receiver instance has no attribute \'corr_pos\'')
+        try:
+            save_dict['corr_pos'] = self.corr_pos
+            save_dict['corr_vel'] = self.corr_vel
+        except:
+            print('Receiver instance has no attribute \'corr_pos\'')
 
         if not os.path.exists(os.path.join(dirname,subdir)):
             os.makedirs(os.path.join(dirname,subdir))
@@ -890,6 +890,20 @@ class Receiver():
                 writer.writerow(temp)
 
             print('Saved handoff params')
+        return
+
+    def load_acq_results(self, dirname):
+        load_dic = sio.loadmat(os.path.join(dirname, 'acq.mat'))
+        acq_results = load_dic['acq_results']
+        prn_list = load_dic['prn_list']
+        self.add_channels(prn_list[0])
+        for prn_idx, prn in enumerate(prn_list[0]):
+            found, rc, ri, fc, fi, cppr, cppm = acq_results[prn_idx, :]
+            state = 'True' if found else 'False'
+            self.channels[prn].set_scalar_params(rc=rc, ri=ri, fc=fc, fi=fi)
+            print('PRN: %d, Found: %s, Code: %.2f chips, Carrier: %.2f cycles, '
+                  'Doppler: %.2f Hz, Cppr: %.2f, Cppm: %.2f'
+                  % (prn, state, rc, ri, fi, cppr, cppm))
         return
 
     def load_measurement_logs(self, dirname=None, subdir='',prn_sel_list = None):

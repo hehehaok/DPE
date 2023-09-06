@@ -5,12 +5,12 @@ fclose('all');
 clc;
 
 %% 数据选择
-dataFlag = 3; % 0-芬兰数据 1-OAKBAT数据 2-芬兰数据第二次运行 3-OAKBAT数据第二次运行
+dataFlag = 0; % 0-芬兰数据 1-OAKBAT数据 2-芬兰数据第二次运行 3-OAKBAT数据第二次运行
 switch dataFlag
     case 0
         dataDir = 'finland_cleanStatic/';
         truePosInLLA = [60.161086788889, 24.545448080556, 54.1640000026673]; % 真实位置(纬度(北正南负)经度(东正西负) 高度) 芬兰
-        secDir = 'test1__1USRPproc40s_6605_7200/';
+        secDir = 'test0906_skip0s_proc40s/';
     case 1
         dataDir = 'oak_cleanStatic/';
         truePosInLLA = [35.930544444, -84.310652778, 248.6000]; % 真实位置(纬度(北正南负) 经度(东正西负) 高度) oak静态
@@ -29,7 +29,7 @@ end
 %% 读取DPE定位结果文件
 predir   = ['./pre-simulator/' dataDir];
 postdir  = ['./post-simulator/' dataDir];
-csvFile = 'usrp6.csv';
+csvFile = 'usrp.csv';
 dir = [postdir secDir csvFile];
 csvData = importdata(dir);
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # 芬兰数据
 import numpy as np
+import os
 
 refname    = 'cleanStatic_gps_finland'  # Simulated
 filename = 'cleanStatic_gps_finland.dat'
@@ -19,12 +20,11 @@ weekno        = 2258 # If running simulated data
 start_time    = 0
 proc_time     = 40
 max_lead_time = 0
+DPE_run_time = 10
 
 acq_only      = False
 load_acq = True
-save_acq = True
 load_trk = True
-save_trk = False
 # prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
 # prn_list = [13, 15, 17, 24, 28] # Simulated
 prn_list = [15] # Simulated
@@ -36,8 +36,6 @@ postdir  = './post-simulator/finland_cleanStatic/'
 
 
 ### No need to change: house keeping ###
-
-import os
 dir_req  = [datpath,predir,postdir]#,'netcsv','html']
 for d in dir_req:
     if not os.path.exists(d):
@@ -56,3 +54,7 @@ try:
 except:
     if os.listdir(postpath):
         print('Warning:',postpath,'not an empty directory.')
+
+acq_dir = prepath + 'acq'
+if not os.path.exists(acq_dir):
+    os.makedirs(acq_dir)
