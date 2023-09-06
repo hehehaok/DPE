@@ -52,8 +52,16 @@ class scalar_thread (threading.Thread):
             self.running = False
             return
 
+        self.rx.scalar_track(mtrack=1000)
+
         try:
-            self.rx.scalar_track(mtrack=run_time * 1000)
+            lock.acquire()
+            self.rx.save_measurement_logs(dirname = prepath,subdir= first_dir)
+        finally:
+            lock.release()
+
+        try:
+            self.rx.scalar_track(mtrack=run_time * 1000 - 1000)
         finally:
             lock.acquire()
             self.rx.save_measurement_logs(dirname = prepath,subdir= second_dir)

@@ -50,8 +50,15 @@ class scalar_thread (threading.Thread):
             self.running = False
             return
 
+        self.rx.scalar_track(mtrack=1000)
         try:
-            self.rx.scalar_track(mtrack=run_time * 1000)
+            lock.acquire()
+            self.rx.save_measurement_logs(dirname = prepath,subdir= first_dir)
+        finally:
+            lock.release()
+
+        try:
+            self.rx.scalar_track(mtrack=run_time * 1000 - 1000)
             #self.rx.scalar_track(mtrack=39000)
         finally:
             lock.acquire()
@@ -154,6 +161,7 @@ class rx_thread (threading.Thread):
         print ('USRP #',self.ip,'DP Thread Launched')
 
         printer.header(self.csvfile)
+        self.rx.initGridInfo(int((run_time /self.rx.rawfile.T_big)))
         for mc in range (int((run_time /self.rx.rawfile.T_big))):
             if not keepRunning:
                 break

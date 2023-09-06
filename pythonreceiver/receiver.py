@@ -385,6 +385,10 @@ class Receiver():
         if gXk_grid is not None:
             self.pos_corr = bc_pos_corr
             self.vel_fft  = bc_vel_fft
+
+            # save gird corr result
+            self.corr_pos[mc, :] = bc_pos_corr
+            self.corr_vel[mc, :] = bc_vel_fft
             return
 
         #mean_pos = np.sum(np.multiply(gX_ECEF_fixed_vel[0:4],np.tile(bc_pos_corr,(4,1))),axis=1)/np.sum(bc_pos_corr)
@@ -790,6 +794,12 @@ class Receiver():
             save_dict['rawfile_'+name] = getattr(self.rawfile,name)
 
         save_dict['receiver_channels'] = sorted(self.channels.keys())
+        try:
+            save_dict['corr_pos'] = sorted(self.corr_pos)
+            save_dict['corr_vel'] = sorted(self.corr_vel)
+        except:
+            print('Receiver instance has no attribute \'corr_pos\'')
+
         if not os.path.exists(os.path.join(dirname,subdir)):
             os.makedirs(os.path.join(dirname,subdir))
 
@@ -954,6 +964,10 @@ class Receiver():
 
     def dp_get_GDOP(self,prn_list = None):
         return self.get_GDOP(X_ECEF = self.ekf.X_ECEF,rxTime_a = self.rxTime_a,prn_list = prn_list)
+
+    def initGridInfo(self, mcount_max, N=390625):
+        self.corr_pos = np.ones((mcount_max, N))*np.nan
+        self.corr_vel = np.ones((mcount_max, N))*np.nan
 
 class NavigationGuesses():
 
