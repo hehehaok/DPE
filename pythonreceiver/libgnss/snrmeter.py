@@ -22,7 +22,8 @@ class SignalNoiseMeter():
             
         self.meanfilter = filters.RunningAverageFilter(N)
         self.varfilter = filters.RunningAverageFilter(N)
-        self.averagingtime = N*T
+        # self.averagingtime = N*T
+        self.averagingtime = T
         
     def reset(self, meanpower=0, varpower=0):
         """

@@ -521,7 +521,7 @@ class Receiver():
         self.rawfile.seek_rawfile(-2*self.rawfile.S)
         self.rawfile.set_rawsnippet_settings(T=original_T, T_big=original_T_big)
 
-        return
+        return acq_results
 
     def scalar_track(self, mtrack = 36000):
 
@@ -544,6 +544,14 @@ class Receiver():
             # 5. perform measurement update
             for prn in self.channels:
                 self.channels[prn].scalar_measurement_update()
+
+            # 6. 更新跟踪状态
+            if i % 500 == 0:
+                print('%3s %3s %6s %12s' % ('TIME(s)', 'PRN', 'STATE', 'C/N0(dB-Hz)'))
+                curr_time = self._mcount / 1000.
+                for prn in self.channels:
+                    state = 'LOCK' if self.channels[prn].lock[self._mcount-1] else 'UNLOCK'
+                    print('%.2f %4d %8s %6.2f ' % (curr_time, prn, state, self.channels[prn].snr[self._mcount-1]))
 
 
     def vt_init (self,numPrevSamples=20,N=20,rxPos0 = None, rxTime0 = None,pOut = False):#,N=20):
@@ -794,11 +802,11 @@ class Receiver():
             save_dict['rawfile_'+name] = getattr(self.rawfile,name)
 
         save_dict['receiver_channels'] = sorted(self.channels.keys())
-        try:
-            save_dict['corr_pos'] = sorted(self.corr_pos)
-            save_dict['corr_vel'] = sorted(self.corr_vel)
-        except:
-            print('Receiver instance has no attribute \'corr_pos\'')
+        # try:
+        #     save_dict['corr_pos'] = self.corr_pos
+        #     save_dict['corr_vel'] = self.corr_vel
+        # except:
+        #     print('Receiver instance has no attribute \'corr_pos\'')
 
         if not os.path.exists(os.path.join(dirname,subdir)):
             os.makedirs(os.path.join(dirname,subdir))
