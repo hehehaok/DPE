@@ -3,10 +3,10 @@
 import numpy as np
 import os
 
-refname    = 'cleanStatic_gps_finland'  # Simulated
+refname    = 'finland_cleanStatic'  # Simulated
 filename = 'cleanStatic_gps_finland.dat'
 datname    = '2023'
-descriptor = 'test0906'
+descriptor = 'test0907_1'
 fs = 26e6
 fi = 6.39e6
 datatype = np.dtype([('i', np.int8)])
@@ -23,15 +23,15 @@ max_lead_time = 0
 DPE_run_time = 10
 
 acq_only      = False
-load_acq = True
-load_trk = True
+load_acq = False
+load_trk = False
 # prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
-# prn_list = [13, 15, 17, 24, 28] # Simulated
-prn_list = [15] # Simulated
+prn_list = [13, 15, 17, 24, 28] # Simulated
+# prn_list = [15] # Simulated
 
 datpath  = 'D:/academic/DPEdata/'
-predir   = './pre-simulator/finland_cleanStatic/'
-postdir  = './post-simulator/finland_cleanStatic/'
+predir   = './pre-simulator/' + refname + '/'
+postdir  = './post-simulator/' + refname + '/'
 
 
 

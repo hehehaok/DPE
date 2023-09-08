@@ -326,6 +326,7 @@ class Receiver():
 
         mc       = self._mcount
         prn_list = sorted(self.channels.keys())
+        counter  = self.counter
 
         X_ECEF   = self.ekf.X_ECEF
         rxTime_a = self.rxTime_a
@@ -385,14 +386,14 @@ class Receiver():
         if gXk_grid is not None:
             self.pos_corr = bc_pos_corr
             self.vel_fft  = bc_vel_fft
-
-            # save gird corr result
-            self.corr_pos[mc, :] = bc_pos_corr
-            self.corr_vel[mc, :] = bc_vel_fft
             return
 
         #mean_pos = np.sum(np.multiply(gX_ECEF_fixed_vel[0:4],np.tile(bc_pos_corr,(4,1))),axis=1)/np.sum(bc_pos_corr)
         #mean_vel = np.sum(np.multiply(gX_ECEF_fixed_pos[4:8],np.tile(bc_vel_fft,(4,1))),axis=1)/np.sum(bc_vel_fft)
+
+        # save gird corr result
+        self.corr_pos[counter, :] = bc_pos_corr
+        self.corr_vel[counter, :] = bc_vel_fft
 
         mean_pos = gX_ECEF_fixed_vel[0:4, np.argmax(bc_pos_corr)]
         mean_vel = gX_ECEF_fixed_pos[4:8, np.argmax(bc_vel_fft)]
@@ -806,7 +807,7 @@ class Receiver():
             save_dict['corr_pos'] = self.corr_pos
             save_dict['corr_vel'] = self.corr_vel
         except:
-            print('Receiver instance has no attribute \'corr_pos\'')
+            print('Receiver instance has no attribute \'corr_pos\' and \'corr_vel\'')
 
         if not os.path.exists(os.path.join(dirname,subdir)):
             os.makedirs(os.path.join(dirname,subdir))
@@ -896,11 +897,14 @@ class Receiver():
         load_dic = sio.loadmat(os.path.join(dirname, 'acq.mat'))
         acq_results = load_dic['acq_results']
         prn_list = load_dic['prn_list']
-        self.add_channels(prn_list[0])
+        init_time = load_dic['init_time']
+        self.rawfile.seek_rawfile(init_time[0,0] * 1000 * self.rawfile.S)
         for prn_idx, prn in enumerate(prn_list[0]):
             found, rc, ri, fc, fi, cppr, cppm = acq_results[prn_idx, :]
+            if found:
+                self.add_channels([prn])
+                self.channels[prn].set_scalar_params(rc=rc, ri=ri, fc=fc, fi=fi)
             state = 'True' if found else 'False'
-            self.channels[prn].set_scalar_params(rc=rc, ri=ri, fc=fc, fi=fi)
             print('PRN: %d, Found: %s, Code: %.2f chips, Carrier: %.2f cycles, '
                   'Doppler: %.2f Hz, Cppr: %.2f, Cppm: %.2f'
                   % (prn, state, rc, ri, fi, cppr, cppm))
@@ -1064,18 +1068,19 @@ class NavigationGuesses():
 
     def get_nav_guesses(self, X_ECEF, rxTime_a, ECEF_only=False, scale = 1.0):
 
-        gX_ECEF  = np.matrix(np.zeros((8,self.N)))
+        gX_ECEF  = np.matrix(np.zeros((8,self.N))) # 8*390625
 
-        X_ENU_trash, R = utils.ECEF_to_ENU(refState=X_ECEF[0:3], curState=X_ECEF[0:3])
-        gX_ECEF[0:3,:] = utils.ENU_to_ECEF(refState=X_ECEF[0:3], diffState=self.dX    * scale, R_ECEF2ENU=R)
-        gX_ECEF[3,:]   = X_ECEF[3,0]+self.dT
-        gX_ECEF[4:7,:] = utils.ENU_to_ECEF(refState=X_ECEF[4:7], diffState=self.dXdot, R_ECEF2ENU=R)
-        gX_ECEF[7,:]   = X_ECEF[7,0]+self.dTdot
+        X_ENU_trash, R = utils.ECEF_to_ENU(refState=X_ECEF[0:3], curState=X_ECEF[0:3]) # 地心地固 -> 东北天 这一步主要是为了得到坐标变换矩阵R
+        # 可以参考GPS/GNSS原理与应用P19
+        gX_ECEF[0:3,:] = utils.ENU_to_ECEF(refState=X_ECEF[0:3], diffState=self.dX    * scale, R_ECEF2ENU=R) # 东北天 -> 地心地固 得到各个网格点XYZ的地心地固坐标系
+        gX_ECEF[3,:]   = X_ECEF[3,0]+self.dT # 得到各网格点钟差
+        gX_ECEF[4:7,:] = utils.ENU_to_ECEF(refState=X_ECEF[4:7], diffState=self.dXdot, R_ECEF2ENU=R) # 东北天 -> 地心地固 得到各个网格点dXdYdZ的地心地固坐标系
+        gX_ECEF[7,:]   = X_ECEF[7,0]+self.dTdot # 得到各网格点钟漂
 
-        gX_ECEF_fixed_vel = np.matrix(gX_ECEF)
+        gX_ECEF_fixed_vel = np.matrix(gX_ECEF) # 8*390625
         gX_ECEF_fixed_vel[4:,:] = X_ECEF[4:,:]
 
-        gX_ECEF_fixed_pos = np.matrix(gX_ECEF)
+        gX_ECEF_fixed_pos = np.matrix(gX_ECEF) # 8*390625
         gX_ECEF_fixed_pos[:4,:] = X_ECEF[:4,:]
 
         if ECEF_only:

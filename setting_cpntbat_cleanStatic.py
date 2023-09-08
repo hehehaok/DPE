@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-# setting_cpntbat_cleanStatic
+# CPNTBAT_cleanStatic
 import numpy as np
+import os
 
-refname    = '210A_cleanStatic_test1'  # Simulated
+refname    = 'CPNTBAT_cleanStatic'  # Simulated
 filename = '210A_cleanStatic_test1.bin'
 datname    = '2023'
 descriptor = 'test1'
@@ -19,19 +20,19 @@ weekno        = 2258 # If running simulated data
 start_time    = 10
 proc_time     = 40
 max_lead_time = 0
+DPE_run_time = 10
 
 acq_only      = False
+load_acq = False
+load_trk = False
 prn_list = [4, 16, 22, 26, 27, 31] # Simulated
 
 datpath  = 'D:/academic/DPEdata/'
-predir   = './pre-simulator/CPNTBAT_cleanStatic/'
-postdir  = './post-simulator/CPNTBAT_cleanStatic/'
-
+predir   = './pre-simulator/' + refname + '/'
+postdir  = './post-simulator/' + refname + '/'
 
 
 ### No need to change: house keeping ###
-
-import os
 dir_req  = [datpath,predir,postdir]#,'netcsv','html']
 for d in dir_req:
     if not os.path.exists(d):
@@ -50,3 +51,7 @@ try:
 except:
     if os.listdir(postpath):
         print('Warning:',postpath,'not an empty directory.')
+
+acq_dir = prepath + 'acq'
+if not os.path.exists(acq_dir):
+    os.makedirs(acq_dir)

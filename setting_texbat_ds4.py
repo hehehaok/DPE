@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-# oak静态数据
+# texbat_ds4
 import numpy as np
+import os
 
-refname    = 'cleanStatic_gps_texbatds4'  # Simulated
+refname    = 'texbat_ds4'  # Simulated
 filename = 'texbat_ds4.bin'
 datname    = '2023'
 descriptor = 'test2'
-fs = 25000000
+fs = 25e6
 fi = 0.0e6
 datatype = np.dtype([('i', np.int16), ('q', np.int16)])
 
@@ -19,21 +20,22 @@ weekno        = 2258 # If running simulated data
 start_time    = 300
 proc_time     = 40
 max_lead_time = 0
+DPE_run_time = 10
 
 acq_only      = False
+load_acq = False
+load_trk = False
 # prn_list = [8, 10, 11, 12, 14, 15, 20, 21, 24, 25, 27, 31, 32] # Simulated
 prn_list = range(1, 33)  # Simulated
 # prn_list = [15] # Simulated
 
 datpath  = 'D:/DATA/TEXBAT/'
-predir   = './pre-simulator/texbat_ds4/'
-postdir  = './post-simulator/texbat_ds4/'
+predir   = './pre-simulator/' + refname + '/'
+postdir  = './post-simulator/' + refname + '/'
 
 
 
 ### No need to change: house keeping ###
-
-import os
 dir_req  = [datpath,predir,postdir]#,'netcsv','html']
 for d in dir_req:
     if not os.path.exists(d):
@@ -52,3 +54,7 @@ try:
 except:
     if os.listdir(postpath):
         print('Warning:',postpath,'not an empty directory.')
+
+acq_dir = prepath + 'acq'
+if not os.path.exists(acq_dir):
+    os.makedirs(acq_dir)
