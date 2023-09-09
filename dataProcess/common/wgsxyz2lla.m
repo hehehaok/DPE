@@ -16,38 +16,42 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function xyz = wgslla2xyz(wlat, wlon, walt)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Function returns the equivalent WGS84 XYZ coordinates (in meters) for a
-% given geodetic latitude "lat" (degrees), longitude "lon" 
-% (degrees), and altitude above the WGS84 ellipsoid
-% in meters.  Note: N latitude is positive, S latitude
-% is negative, E longitude is positive, W longitude is
-% negative.
-%
-% Inputs:
-%   wlat    - WGS 84 latitude
-%   wlon    - WGS84 longitude
-%   walt    - WGS84 altitude
-%
-% Outputs:
-%   xyz - Cartesian coordinate vector
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function [lat, lon, alt] = wgsxyz2lla(xyz)
+% [lat, lon, alt] = WGSXYZ2LLA( const, xyz )
+% input xyz [meters] shall have dimensions Nx3
+% then lat [degrees], lon [degrees], alt [meters] will be Nx1 each
+
+% Reference: P. Misra & P. Enge, "Global Positioning System: Signals, 
+% Measurements, and Performance", 2nd ed., Appendix 3.A.1, pp. 115--116
+
+%% WGS84 constants
 const.EARTH_SEMIMAJORAXIS = 6378137;
 const.EARTH_FLATTENING = 1/298.257223563;
-A_EARTH = const.EARTH_SEMIMAJORAXIS;
-flattening = const.EARTH_FLATTENING;
+A = const.EARTH_SEMIMAJORAXIS;
+F = const.EARTH_FLATTENING; % note: the const parameter is the inverse flattening
+E2 = (2-F)*F;
 
-NAV_E2 = (2-flattening)*flattening; % also e^2
-deg2rad = pi/180;
+%% Input sanity check
+if isvector( xyz )
+    if length( xyz ) ~= 3
+        error( 'Input is a vector of length %d, 3 expected', length( xyz ) );
+    elseif iscolumn( xyz ) %size( xyz, 1 ) == 3
+        xyz = xyz';       
+    end                
+elseif size( xyz, 2 ) ~= 3
+    error( 'Input must be of size nx3, %d?%d encountered', ...
+           size( xyz, 1 ), size( xyz, 2 ) );
+end
 
-slat = sin(wlat*deg2rad);
-clat = cos(wlat*deg2rad);
-r_n = A_EARTH/sqrt(1 - NAV_E2*slat*slat);
-xyz = [ (r_n + walt)*clat*cos(wlon*deg2rad);  
-        (r_n + walt)*clat*sin(wlon*deg2rad);  
-        (r_n*(1 - NAV_E2) + walt)*slat ];
+% The actual conversion
+lat = zeros( size( xyz, 1 ), 1 );
+lon = atan2d( xyz(:, 2), xyz(:, 1) );
 
-
-
+% The iteration of latitude and altitude is started at zero latitude
+p = sqrt( sum( xyz(:, 1:2).^2, 2 ) );
+for iteration = 1:10
+    N = A ./ sqrt( 1 - E2 * sind( lat ).^2 );
+    alt = p ./ cosd( lat ) - N;
+    lat = atand( xyz(:, 3) ./ p ./ (1 - E2 * (N ./ (N + alt ) ) ) );
+end
