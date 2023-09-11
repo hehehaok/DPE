@@ -139,7 +139,7 @@ class Channel():
 
     def vector_correlation_unfolded(self):
 
-        mc = self.receiver._mcount
+        mc = self.receiver._mcount  # 当前历元数
 
         # generate the in between shifts by shifting a little and performing correlation (FFT)
 
@@ -147,8 +147,9 @@ class Channel():
                                                                                    self.rc[mc], self.ri[mc],
                                                                                    self.fc[mc], self.fi[mc],
                                                                                    self.cp[mc], self.ephemerides.timestamp['cp'])
+        # code_corr是伪码的自相关结果，carr_fft是去伪码去载波后的基带fft结果，cp_compl是当前一个历元内的样本点数所包含的码周期数
 
-        self._cpcount = self._cpcount + cp_compl
+        self._cpcount = self._cpcount + cp_compl # 更新目前所在的码周期序号
 
         return self.code_corr, self.carr_fft, cp_compl
 
@@ -158,15 +159,20 @@ class Channel():
     def scalar_time_shift(self):
         """increment/step in time."""
 
-        mc = self.receiver._mcount
+        mc = self.receiver._mcount  # 当前历元序号
 
         # Record number of completed code periods
         self._cpcount = self._cpcount \
             + int(np.floor((self.rawfile.S_skip*(self.fc[mc]/self.rawfile.fs)+self.rc[mc])/L_CA))
+        # 注意由于T=T_big=0.020，因此self.rawfile.S_skip=0
+        # 即int(np.floor((self.rawfile.S_skip*(self.fc[mc]/self.rawfile.fs)+self.rc[mc])/L_CA)) = 0
+        # 因此当前历元所在的伪码周期序号不变
 
         # Increment phase
         self.rc[mc] = np.mod(self.rc[mc]+self.fc[mc]*self.rawfile.T_skip, L_CA)
         self.ri[mc] = np.mod(self.ri[mc]+self.fi[mc]*self.rawfile.T_skip, 1.0)
+        # 注意由于T=T_big=0.020，因此self.rawfile.T_skip=0
+        # 因此码相位和载波相位不变
 
         return
 
@@ -194,40 +200,42 @@ class Channel():
     def scalar_time_update_adv(self, prn_idx):
         """increment/step in time."""
 
-        mc = self.receiver._mcount
+        mc = self.receiver._mcount # 当前历元序号
 
         # Frequency is the same
         self.fc[mc+1] = self.fc[mc]
         self.fi[mc+1] = self.fi[mc]
         self.fi_bias[mc+1] = self.fi_bias[mc]
         self.fc_bias[mc+1] = self.fc_bias[mc]
+        # 频率相关参数保持不变，最后再更新
 
         # Increment carrier phase
-        self.ri[mc+1] = np.mod(self.ri[mc]+self.fi[mc]*self.rawfile.T, 1.0)
+        self.ri[mc+1] = np.mod(self.ri[mc]+self.fi[mc]*self.rawfile.T, 1.0)  # 推演下个历元的载波相位
 
         # Better (?) code phase update following Arthur's issue with results from code phase
         # Compute the expected code phase using the current channel params
         #cp_pred = self._cpcount = self._cpcount + int(
             #np.floor((self.rawfile.S_skip * (self.fc[mc] / self.rawfile.fs) + self.rc[mc]) / L_CA))
 
-        cp_pred = self.cp[mc] + int(np.floor((self.rc[mc] + self.fc[mc] * self.rawfile.T)/ L_CA))
-        rc_pred = np.mod(self.rc[mc] + self.fc[mc] * self.rawfile.T, L_CA)
+        cp_pred = self.cp[mc] + int(np.floor((self.rc[mc] + self.fc[mc] * self.rawfile.T)/ L_CA))  # 推演下个历元的码周期序号
+        rc_pred = np.mod(self.rc[mc] + self.fc[mc] * self.rawfile.T, L_CA)  # 推演下个历元的码相位
 
         # Get the satellite position for the predicted txTime
         X_ECEF   = self.receiver.ekf.X_ECEF
         rxTime_a = self.receiver.rxTime_a
         rxTime = self.receiver.rxTime
+        # 由于这里的接收机坐标和本地时间均是经EKF的运动模型更新后的值，因此接下来通过更新后的接收机位置和本地时间估算对应时间的卫星位置
 
-        X_ECI  = utils.ECEF_to_ECI(X_ECEF,t_gps=rxTime_a,t_c=rxTime_a)
+        X_ECI  = utils.ECEF_to_ECI(X_ECEF,t_gps=rxTime_a,t_c=rxTime_a)  # 地心地固到地心惯性
 
         transmitTime = self.ephemerides.timestamp['TOW'] \
                         + T_CA * (cp_pred - self.ephemerides.timestamp['cp']) \
-                        + rc_pred / F_CA
+                        + rc_pred / F_CA  # 推演下个历元对应的卫星信号发送时间
 
-        clkb, clkd = satpos.satellite_clock_correction(self.ephemerides, transmitTime)
-        sats_ECEF = satpos.locate_satellite(self.ephemerides, transmitTime-clkb, clkb, clkd)
-        transmitTime = transmitTime - clkb
-        sats_ECI = utils.ECEF_to_ECI(sats_ECEF, t_gps=transmitTime, t_c=rxTime_a)
+        clkb, clkd = satpos.satellite_clock_correction(self.ephemerides, transmitTime)  # 卫星钟差钟漂(下一个历元)
+        sats_ECEF = satpos.locate_satellite(self.ephemerides, transmitTime-clkb, clkb, clkd)  # 卫星ECEF坐标(下一个历元)
+        transmitTime = transmitTime - clkb  # 修正卫星钟差后的卫星信号发送时间(下一个历元)
+        sats_ECI = utils.ECEF_to_ECI(sats_ECEF, t_gps=transmitTime, t_c=rxTime_a) # 卫星ECI坐标(下一个历元)
 
 
         bc_range = np.linalg.norm(sats_ECI[0:3] - X_ECI[0:3], axis=0)
@@ -237,10 +245,13 @@ class Channel():
                           - self.ephemerides.timestamp['TOW'] \
                           - T_CA * (self.cp[mc] - self.ephemerides.timestamp['cp'])
         bc_rc = bc_codeFracDiff * F_CA
+        # 以伪距为桥梁，由位置变化推断码相位，对应博士论文"Development and analysis of a parallelized direct
+        # position estimation-based GPS receiver implementation"P13 list2.2的第1个式子
 
         # Compute the code phase for the current state
         self.cp[mc+1] = np.floor(bc_rc/L_CA) + self.cp[mc]
         self.rc[mc+1] = np.mod(bc_rc, L_CA)
+        # 推演下个历元的码周期序号和码相位，比上面那个更精确
 
         return
 

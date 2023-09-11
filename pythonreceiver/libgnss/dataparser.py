@@ -25,7 +25,7 @@ def parse_ephemerides(channel, m_start, m_end):
 
     for test in preamble_locations:
         if test < 40:
-            test = test + 6000  # 由于当前子帧的奇偶校验需要上一个子帧的最后两个导航电文比特，因此需要确保起始帧头位置大于2个导航电文比特的位置，即40个伪码周期
+            test = test + 6000  # 由于当前字的奇偶校验需要上一个字的最后两个导航电文比特，因此需要确保起始帧头位置大于2个导航电文比特的位置，即预留40个伪码周期
         test_set = set([test,test+6000,test+6000*2,test+6000*3,test+6000*4])
         # 一个子帧6秒，即6000个码周期，一个完整的帧包含5个子帧，如果能够找到连续的5个子帧即说明已具备解算所需的所有星历参数
         # 因此假设找到5个连续的子帧帧头
@@ -55,7 +55,7 @@ def parse_ephemerides(channel, m_start, m_end):
     first_d29d30 = np.sign(np.sum(first_d29d30,1))
     d29 = first_d29d30[0]
     d30 = first_d29d30[1]
-    # 将第一个帧头之前的40个伪码周期进行累加，得到第一个帧头的上一个子帧的最后两个导航电文比特，用于第一个子帧的奇偶校验
+    # 将第一个帧头之前的40个伪码周期进行累加，得到第一个帧头的上一个子帧的最后两个导航电文比特，用于第一个子帧的第一个字的奇偶校验
     # 具体奇偶校验可以参考谢钢 GPS原理与接收机设计P34
 
     reload(eph)
@@ -63,16 +63,18 @@ def parse_ephemerides(channel, m_start, m_end):
         words = []
         wordNr = 0    
         polarity = subframe_polarities[subframeNr]
-        bits = navbits_all[(subframeNr*300+(wordNr*30)):(subframeNr*300+(wordNr*30+30))]     
+        bits = navbits_all[(subframeNr*300+(wordNr*30)):(subframeNr*300+(wordNr*30+30))]
+        # 对当前子帧的每个字进行奇偶校验
         words.append(eph.Word(polarity,d29,d30,bits))
         for wordNr in range(1,10):
             bits = navbits_all[(subframeNr*300+(wordNr*30)):(subframeNr*300+(wordNr*30+30))]
             words.append(eph.Word(words[-1].d30,words[-1].d29,words[-1].d30,bits))
         d29 = words[-1].d29
         d30 = words[-1].d30
+        # 读取当前子帧中的星历参数并保存到subframes中
         subframes.append(eph.Subframe(subframe_locations[subframeNr]+cp[0],words))
 
-    parsed_ephemerides  = eph.Ephemerides(subframes)
+    parsed_ephemerides  = eph.Ephemerides(subframes)  # 保存当前连续5个子帧的星历参数
     channel.ephemerides = parsed_ephemerides
     
     return

@@ -15,13 +15,13 @@ import scipy.io as sio
 import time
 import os
 
-# 实例化接收机
+# 初始化标量跟踪接收机
 scalar_sdr = receiver.Receiver(rawfile.RawFile(metafile=None,
                                                abspath=datpath + filename,  # 数据所在路径
                                                fs=fs, fi=fi, ds=1.0,  # 采样率、中频频率、比例系数（不用管）
                                                datatype=datatype,  # 单个采样点的数据类型
                                                notes='Data set ' + refname),
-                                               mcount_max=run_time * 1000 + 1)  # 总的历元数
+                                               mcount_max=run_time * 1000 + 1)  # 总的历元数，每个历元0.001秒，即一个伪码周期
 
 first_dir = 'end-of-3sec'  # 前三秒标量跟踪结果保存路径
 second_dir = 'end-of-%dsec' % proc_time  # 所有时间，即proc_time标量跟踪结果保存路径
@@ -73,25 +73,25 @@ DPE_sdr = receiver.Receiver(rawfile.RawFile(metafile=None,
                                             fs=fs, fi=fi, ds=1.0,
                                             datatype=datatype,
                                             notes='Data set ' + refname),
-                                            mcount_max = DPE_run_time * 50 + 5000)
+                                            mcount_max = DPE_run_time * 50 + 5000)  # 总的历元数，每个历元0.02秒，即20个伪码周期
 
-DPE_sdr.load_measurement_logs(dirname = prepath, subdir= first_dir)
+DPE_sdr.load_measurement_logs(dirname = prepath, subdir= first_dir)  # 载入前三秒的跟踪结果作为DPE解算的起点
 
 del_clist = []
 for prn in DPE_sdr.channels:
     try:
-        DPE_sdr.channels[prn].ephemerides = scalar_sdr.channels[prn].ephemerides
+        DPE_sdr.channels[prn].ephemerides = scalar_sdr.channels[prn].ephemerides  # 载入星历参数用于解算DPE初始位置
     except:
         del_clist += [prn]
-DPE_sdr.del_channels(del_clist)
+DPE_sdr.del_channels(del_clist)  # 仅有包含星历的通道被保留，若跟踪后未能解算出星历则删除对应通道
 print ('DP Channels')
 print (DPE_sdr.channels.keys())
 
-DPE_sdr.rawfile.set_rawsnippet_settings(T=0.020, T_big=0.020)
-DPE_sdr.init_dp()
+DPE_sdr.rawfile.set_rawsnippet_settings(T=0.020, T_big=0.020)  # 每次读取数据设置为0.02秒，即一个解算历元为0.02秒
+DPE_sdr.init_dp()  # DPE初始化
 print ('Init at', utils.ECEF_to_LLA(DPE_sdr.ekf.X_ECEF))
 
-counter_max = int(DPE_run_time / DPE_sdr.rawfile.T_big)
+counter_max = int(DPE_run_time / DPE_sdr.rawfile.T_big)  # DPE总的历元数
 X_list = []
 rxTime_list = []
 csvfile = open(postpath+'usrp.csv','w')
@@ -99,17 +99,17 @@ csvfile = open(postpath+'usrp.csv','w')
 print ('DP Launched')
 start = time.time()
 
-printer.header(csvfile)
-DPE_sdr.counter = 0
-DPE_sdr.initGridInfo(counter_max)
+printer.header(csvfile)  # 在表格中打印表头(即第一行的各列标题)
+DPE_sdr.counter = 0  # 用于记录DPE的历元序号
+DPE_sdr.initGridInfo(counter_max)  # 初始化储存DPE相关结果的矩阵
 for mc in range(counter_max):
-    DPE_sdr.dp_track(1)
+    DPE_sdr.dp_track(1)  # DPE解算，每次只处理一个历元
     DPE_sdr.counter += 1
     printer.printer(DPE_sdr.counter,weekno,DPE_sdr.rxTime_a,
-                    DPE_sdr.ekf.X_ECEF,csvfile)
-    X_list += [DPE_sdr.ekf.X_ECEF.copy()]
-    rxTime_list += [DPE_sdr.rxTime_a]
-    if DPE_sdr.counter % 100 == 0:
+                    DPE_sdr.ekf.X_ECEF,csvfile)  # 打印表内容，即打印完表头后，在对应表头下方打印每个历元的数据
+    X_list += [DPE_sdr.ekf.X_ECEF.copy()]  # 记录位置信息
+    rxTime_list += [DPE_sdr.rxTime_a]  # 记录接收机本地时间
+    if DPE_sdr.counter % 100 == 0:  # 每跑完20ms*100=2s储存一次结果，这样就算中断也有一部分结果
         np.save(postpath + 'usrp_X', np.array(X_list))
         np.save(postpath + 'usrp_t', np.array(rxTime_list))
         DPE_sdr.save_measurement_logs(dirname=postpath, subdir='end-of-dp')
@@ -122,7 +122,7 @@ print ('DP success!')
 print ('%.2f seconds elapsed for data proc.'%elapse)
 np.save(postpath + 'usrp_X', np.array(X_list))
 np.save(postpath + 'usrp_t', np.array(rxTime_list))
-DPE_sdr.save_measurement_logs(dirname=postpath, subdir='end-of-dp')
+DPE_sdr.save_measurement_logs(dirname=postpath, subdir='end-of-dp')  # 最后再完整的存储一次数据
 csvfile.close()
 
 

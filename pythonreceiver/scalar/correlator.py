@@ -401,23 +401,24 @@ class Correlator():
         # This was done to validate the method used in CUDARecv.
         # Conceptually, I think they should produce the same result, but this will verify.
 
-        cp_since_prev_bit = (cp-cp_timestamp)%20
-        cp_to_next_bit    = 20-cp_since_prev_bit
-        idx_next_bit      = np.floor((L_CA*cp_to_next_bit-rc)*(rawfile.fs/fc)).astype(np.int32) + 1
+        cp_since_prev_bit = (cp-cp_timestamp)%20  # 当前位置距离子帧开始位置的码周期数
+        cp_to_next_bit    = 20-cp_since_prev_bit  # 距离下一个比特的码周期数
+        idx_next_bit      = np.floor((L_CA*cp_to_next_bit-rc)*(rawfile.fs/fc)).astype(np.int32) + 1  # 距离下一个比特的样本点数
 
-        cp_compl = np.floor((rawfile.S*(fc/rawfile.fs)+rc)/L_CA)
+        cp_compl = np.floor((rawfile.S*(fc/rawfile.fs)+rc)/L_CA)  # 当前一个历元内的样本点数所包含的码周期数
 
         if (idx_next_bit > 0) and (idx_next_bit < rawfile.S):
+            # 在当前历元内存在导航电文边沿，因此需要考虑在边沿处是否发生比特跳变
 
-            raw = np.array(rawfile.rawsnippet)
+            raw = np.array(rawfile.rawsnippet)  # 信号的中频数据
             #raw_flip    = np.array(raw_no_flip)
             #raw_flip[idx_next_bit:] = -raw_flip[idx_next_bit:]
 
             # #### convert to baseband with current fi and ri (velocities)
 
-            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))
+            doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))  # 本地载波
 
-            baseband_no_flip = raw*doppler_wipeoff_signal
+            baseband_no_flip = raw*doppler_wipeoff_signal  # 去载波到基带
             #baseband_flip    = raw_flip*doppler_wipeoff_signal
 
             # #### already in baseband with current fi and ri (velocities)
@@ -427,30 +428,39 @@ class Correlator():
             # ##### correlation, save code_corr
 
             r_no_flip = self.chips.take(np.mod(np.floor(rawfile.time_idc*fc + rc),L_CA).astype(np.int32))
+            # 生成本地伪码(在边沿处没有发生比特跳变)
             r_flip = np.array(r_no_flip)
             r_flip[idx_next_bit:] = -r_flip[idx_next_bit:]
+            # 生成本地伪码(在边沿处发生比特跳变)
 
             rcfft_no_flip = np.conjugate(np.fft.fft(r_no_flip))
             rcfft_flip = np.conjugate(np.fft.fft(r_flip))
+            # 对两种情况的本地伪码取FFT再求共轭
 
             rfft = np.fft.fft(baseband_no_flip)
-            corr_no_flip = np.fft.ifft(rcfft_no_flip*rfft)
+            # 基带信号取FFT
 
+            corr_no_flip = np.fft.ifft(rcfft_no_flip*rfft)
             corr_flip = np.fft.ifft(rcfft_flip*rfft)
+            # FFT结果相乘再取IFFT即得到相关结果
 
             if np.abs(corr_flip[0])>np.abs(corr_no_flip[0]):
+                # 因为本地伪码是依照跟踪结果的码相位生成的，因此理论上本地伪码和接收信号的伪码是对齐的
+                # 即相关结果的峰值就是第一个元素，如果假设不发生符号跳变的伪码对应的相关结果更大，
+                # 说明实际信号的下一个比特确实没有翻转，因此不翻转的假设正确，取对应的结果为最终结果，反之则反
                 r = r_flip
-                code_corr = np.fft.fftshift(corr_flip)
+                code_corr = np.fft.fftshift(corr_flip)  # 注意这里需要移位，与code_fftidc相对应
             else:
                 r = r_no_flip
                 code_corr = np.fft.fftshift(corr_no_flip)
 
             # ##### FFT, save carr_fft, carr_fftbins
 
-            baseband = (raw-np.mean(raw)) * r * doppler_wipeoff_signal
-            carr_fft = np.fft.fftshift(np.fft.fft(baseband, rawfile.carr_fftpts))
+            baseband = (raw-np.mean(raw)) * r * doppler_wipeoff_signal  # 中频信号去直流*本地伪码*去载波
+            carr_fft = np.fft.fftshift(np.fft.fft(baseband, rawfile.carr_fftpts))  # 同样注意这里需要移位，与carr_fftidc相对应
 
         else:
+            # 在当前历元内不存在导航电文边沿，因此不需要考虑在边沿处是否发生比特跳变
 
             raw = np.array(rawfile.rawsnippet)
             doppler_wipeoff_signal = np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))

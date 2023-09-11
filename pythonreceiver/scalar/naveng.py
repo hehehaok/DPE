@@ -29,16 +29,24 @@ def calculate_nav_soln(receiver, prn_list=None, mc=None, rxTime0=None, rxPos0=No
 
         codeIntDiff[prn_idx]  = (receiver.channels[prn].cp[mc] \
                                  - receiver.channels[prn].ephemerides.timestamp['cp'])*T_CA
+        # 伪码周期个数对应的时间=(当前所在伪码周期序号-子帧起始位置处的伪码周期序号)*伪码周期
         codeFracDiff[prn_idx] = (receiver.channels[prn].rc[mc])/F_CA
+        # 伪码码相位对应的时间=码相位(chip)/码频率=码相位(chip)/伪码长度(1023)*伪码周期(0.001s)
         transmitTime[prn_idx] = receiver.channels[prn].ephemerides.timestamp['TOW'] \
                                  + codeIntDiff[prn_idx] + codeFracDiff[prn_idx]
+        # 卫星信号的发送时间=子帧起始位置处的时间(周内秒)+从子帧起始位置开始经过的伪码周期个数对应时间+当前伪码周期内的码相位对应时间
+        # 具体可以参考谢钢 GPS原理与接收机设计 P72
 
         clkb, clkd = satpos.satellite_clock_correction(receiver.channels[prn].ephemerides,
                                                                transmitTime[prn_idx])
+        # 根据星历参数和信号发送时间计算钟差钟漂，注意这里的钟差钟漂是针对卫星的，即用于修正卫星信号发送时间的，而不是接收机本地时钟的钟差钟漂
+
         sats_ECEF[:,prn_idx] = satpos.locate_satellite(receiver.channels[prn].ephemerides,
                                                                transmitTime[prn_idx]-clkb, clkb, clkd)
+        # 计算卫星状态向量[位置状态XYZ 钟差 速度状态VxVyVz 钟漂]（在地心地固坐标系(ECEF)下）
 
         doppler[prn_idx]      = (receiver.channels[prn].fi[mc])*receiver.rawfile.ds
+        # 多普勒频移
 
     # Channels with a larger codeIntDiff + codeFracDiff are from satellites
     # which are closer in distance. Thus at a fixed received time instance,
@@ -52,35 +60,49 @@ def calculate_nav_soln(receiver, prn_list=None, mc=None, rxTime0=None, rxPos0=No
         # It takes about 68ms for the signal to travel from the closest
         # satellite to the receiver.
         rxTime = max(transmitTime)+0.068
+        # 接收机接收信号的时间=发射时间+68ms(估算)
+        # GPS GEO卫星到地球的时间为68ms左右
         #print('Initializing rxTime as: %.3f'%(rxTime))
     else:
         rxTime = rxTime0
 
     # organize observations into pseudoranges and pseudorates
     pseudoranges = (C)*(rxTime - transmitTime) + (C)*(np.asarray(sats_ECEF)[3,:])
+    # 计算伪距=光速*(接收时间-发射时间)+光速*钟差
     pseudorates  = (-C/F_L1)*(doppler) + (C)*(np.asarray(sats_ECEF)[7,:])
+    # 计算伪距速率=-光速*(多普勒频移/载波频率)+光速*钟漂
 
     transmitTime = transmitTime - np.asarray(sats_ECEF)[3,:]
+    # 用钟差修正信号发送时间
 
     # rotate satellite positions to Earth-Centered-Inertial (ECI)
     t_c = rxTime
+    # 信号接收时间
 
     sats_ECI = np.matrix(np.zeros((8,numChannels)))
 
     for prn_idx, prn in enumerate(prn_list):
         sats_ECI[:,prn_idx] = utils.ECEF_to_ECI(sats_ECEF[:,prn_idx],t_gps=transmitTime[prn_idx], t_c=t_c)
+    # 地心地固坐标系->地心惯性坐标系(在转换过程中要考虑地球的自转角=地球自转角速度*信号传输时间)
+    # 这里感觉不像是完整的地心地固->地心惯性的坐标系转换，只考虑了地球自转角，应该只是为了后续在最小二乘的时候不用再考虑地球自转，参考鲁郁书P308
 
     # perform navigation solution estimation through iterative least squares in ECI,
     # get actual GPS received time, rotate back to ECEF
     posvel_ECI  = perform_least_sqrs(sats_ECI, pseudoranges, pseudorates=pseudorates, rxPos0=rxPos0)
+    # 使用最小二乘计算接收机的8维状态向量，rxPos0为参考位置
+    # 注意这里得到的posvel_ECI的第4个元素不再是以秒为单位的钟差，而是钟差乘以光速，且这里的钟差是接收机本地时钟的钟差
+
     rxTime_a    = rxTime - posvel_ECI[3,0]/C
+    # 修正接收机本地时钟的钟差(一开始我们对接收机的本地时钟采用的是发射时间+68ms的估计值，在这里得到修正)
     posvel_ECEF = utils.ECI_to_ECEF(posvel_ECI, t_gps=rxTime_a, t_c=t_c)
+    # 将接收机状态向量从地心惯性系转换回地心地固系(此时地心地固系的接收机坐标对应的时间为修正接收机时钟后的时间)
 
     # rotate all states to receiver's ECI
     t_c = rxTime_a
     posvel_ECI = utils.ECEF_to_ECI(posvel_ECEF, t_gps=rxTime_a, t_c=t_c)
     for prn_idx, prn in enumerate(prn_list):
         sats_ECI[:,prn_idx] = utils.ECEF_to_ECI(sats_ECEF[:,prn_idx], t_gps=transmitTime[prn_idx], t_c=t_c)
+    # 将卫星和接收机的状态向量全部转换到地心惯性系
 
     if pOut == True:
         return rxTime_a, rxTime, posvel_ECEF, posvel_ECI, sats_ECI, pseudoranges, pseudorates

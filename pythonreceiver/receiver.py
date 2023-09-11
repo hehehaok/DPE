@@ -100,21 +100,26 @@ class Receiver():
 
     def init_dp(self, rxTime0=None, rxPos0=None, navguess = True, pOut=False):
 
-        mc       = self._mcount
-        prn_list = sorted(self.channels.keys())
+        mc       = self._mcount  # 当前历元序号
+        prn_list = sorted(self.channels.keys())  # 卫星序号列表
 
         rxTime_a, rxTime, X_ECEF, X_ECI, sats_ECI = \
         naveng.calculate_nav_soln(self, mc=mc, prn_list=prn_list, rxTime0=rxTime0, rxPos0=rxPos0, pOut=pOut)
+        # 最小二乘解算DPE初始位置
+        # 5个返回值分别表示修正后的接收机本地时间，未修正的接收机本地时间，接收机的地心地固坐标，接收机的地心惯性坐标，卫星的地心惯性坐标
 
         self.ekf = ekf.ExtendedKalmanFilter(X_ECEF, Sigma=None, T=self.rawfile.T_big)
-        self.rxTime = rxTime
-        self.rxTime_a = rxTime_a
+        # 卡尔曼滤波可以参考"Improving the robustness of GPS direct position estimation"这篇博士论文的P13-P14
+        # 以及"Mitigating jamming and meaconing attacks using direct GPS positioning"这篇会议论文的"Estimation and Filtering"部分
+
+        self.rxTime = rxTime  # 未修正的接收机本地时间
+        self.rxTime_a = rxTime_a  # 修正后的接收机本地时间
 
         # Debug -- remove the comment later
         #self.dp_measurement_update_channels()
 
         if navguess:
-            self.navguess = NavigationGuesses()
+            self.navguess = NavigationGuesses()  # 生成DPE网格
 
 
     def init_handoff(self, rxTime0=None, rxPos0=None, navguess = True, pOut=False):
@@ -206,29 +211,31 @@ class Receiver():
 
         for i in range(mtrack):
             self.rawfile.seek_rawfile(self.rawfile.S_skip)
-            self.rawfile.update_rawsnippet()
-            self.m_samp[self._mcount] = self.rawfile.rawfile_samp
-            self.m_time[self._mcount] = self.rawfile.rawfile_time
+            # 如果需要的话将调整文件指针位置，此处由于T=T_big=0.020，因此self.rawfile.S_skip=0
+            self.rawfile.update_rawsnippet()  # 读取文件数据
+            self.m_samp[self._mcount] = self.rawfile.rawfile_samp  # 记录当前历元所在采样点位置
+            self.m_time[self._mcount] = self.rawfile.rawfile_time  # 记录当前历元所在采样点时间
 
-            self.dp_time_update_state()
+            self.dp_time_update_state()  # 更新当前历元的接收机状态向量
             #self.dp_time_update_channels()
-            self.dp_time_update_channels_unfolded()
+            self.dp_time_update_channels_unfolded()  # 更新当前历元的各通道信息，载波相位、码相位、码周期序号等
 
             # 4. increment measurement count (change time point/boundary)
-            self._mcount = self._mcount + 1
+            self._mcount = self._mcount + 1  # 更新当前的历元序号
 
             #e = self.dp_measurement_estimation()
             e = self.dp_measurement_estimation_unfolded()
-            self.dp_measurement_update_state(e)
-            self.dp_measurement_update_channels()
+            # DPE求解；寻找可能性最大的网格并返回score最大的网格对应状态向量与之前估算的状态向量的残差
+            self.dp_measurement_update_state(e)  # 利用该残差进行EKF滤波
+            self.dp_measurement_update_channels()  # 更新载波频率和码频率
 
         return
 
     def dp_time_update_state(self):
 
-        self.ekf._time_update()
-        self.rxTime   = self.rxTime+self.rawfile.T_big
-        self.rxTime_a = self.rxTime-self.ekf.X_ECEF[3,0]/C
+        self.ekf._time_update()  # 根据EKF设置的运动模型估计当前历元的接收机位置
+        self.rxTime   = self.rxTime+self.rawfile.T_big  # 更新接收机接收信号的本地时间
+        self.rxTime_a = self.rxTime-self.ekf.X_ECEF[3,0]/C  # 钟差修正
 
         return
 
@@ -244,9 +251,9 @@ class Receiver():
     def dp_time_update_channels_unfolded(self):
 
         for prn_idx, prn in enumerate(self.channels):
-            self.channels[prn].scalar_time_shift()
-            self.channels[prn].vector_correlation_unfolded()
-            self.channels[prn].scalar_time_update_adv(prn_idx)
+            self.channels[prn].scalar_time_shift()  # 感觉目前的使用场景下注释掉也没关系
+            self.channels[prn].vector_correlation_unfolded()  # DPE中的相关
+            self.channels[prn].scalar_time_update_adv(prn_idx)  # 更新各通道参数
 
         return
 
@@ -335,9 +342,13 @@ class Receiver():
         X_ECI  = utils.ECEF_to_ECI(X_ECEF,t_gps=rxTime_a,t_c=rxTime_a)
         sats_ECI, transmitTime = naveng.get_satellite_positions(self, t_c=rxTime_a)
 
-        if gXk_grid is None: #single receiver mode
+        if gXk_grid is None: #single receiver mode 我们使用的均为单接收机模式，不用考虑多接收机模式
             gX_ECEF_fixed_vel, gX_ECI_fixed_vel, gX_ECEF_fixed_pos, gX_ECI_fixed_pos, bc_pos_corr, bc_vel_fft\
                 = self.navguess.get_nav_guesses(X_ECEF, rxTime_a)
+            # 以初始化位置为中心，生成各网格处的状态向量
+            # 注意这里已经将8维优化降为2个4维优化，即求解位置向量时固定速度向量，求解速度向量时固定位置向量
+            # gX_ECEF_fixed_vel, gX_ECI_fixed_vel, gX_ECEF_fixed_pos, gX_ECI_fixed_pos表示各网格处的状态向量，大小为8*390625
+            # bc_pos_corr, bc_vel_fft分别表示用于储存各网格位置和速度score的矩阵，大小为1*390625
         else: # multi receiver mode
             gX_ECEF_fixed_vel, gX_ECEF_fixed_pos = gXk_grid # unpacking
             gX_ECI_fixed_vel = utils.ECEF_to_ECI(gX_ECEF_fixed_vel,t_gps=self.rxTime_a,t_c=self.rxTime_a)
@@ -348,40 +359,49 @@ class Receiver():
         for prn_idx, prn in enumerate(prn_list):
 
             bc_los          = (sats_ECI[0:3,prn_idx]-X_ECI[0:3]).T/\
-                              (np.linalg.norm((sats_ECI[0:3,prn_idx]-X_ECI[0:3]), axis=0)[0])
-            bc_rangerate    = gX_ECI_fixed_pos[4:7,:]-sats_ECI[4:7,prn_idx]
-            bc_losrangerate = np.array(bc_los*bc_rangerate)[0,:]
-            bc_pseudorate   = -bc_losrangerate + C*(np.array(gX_ECI_fixed_pos)[7,:]/C-sats_ECI[7,prn_idx])
-            bc_doppler      = -F_L1/C*bc_pseudorate
-            bc_fi           = bc_doppler/self.rawfile.ds
+                              (np.linalg.norm((sats_ECI[0:3,prn_idx]-X_ECI[0:3]), axis=0)[0])  # 1*3
+            bc_rangerate    = gX_ECI_fixed_pos[4:7,:]-sats_ECI[4:7,prn_idx]  # 3*390625
+            bc_losrangerate = np.array(bc_los*bc_rangerate)[0,:]  # 1*390625
+            bc_pseudorate   = -bc_losrangerate + C*(np.array(gX_ECI_fixed_pos)[7,:]/C-sats_ECI[7,prn_idx])  # 1*390625
+            bc_doppler      = -F_L1/C*bc_pseudorate  # 1*390625
+            # 最终对应博士论文P13 list2.2的第4个式子
+            bc_fi           = bc_doppler/self.rawfile.ds  # 1*390625 self.rawfile.ds=1 不影响
 
-            bc_fi0      = bc_fi - self.channels[prn].fi[mc]
+            bc_fi0      = bc_fi - self.channels[prn].fi[mc]  # 1*390625
+            # 前面的carr_fft已经去除载波到基带了，这里应该对应
             bc_fi0_idx  = (self.rawfile.carr_fftpts/self.rawfile.fs)*(bc_fi0)+self.rawfile.carr_fftpts/2.0
-            #bc_fi0_idx = (self.rawfile.S / self.rawfile.fs) * (bc_fi0) + self.rawfile.S / 2.0
-            #bc_fi0_idx = (131072 / self.rawfile.fs) * (bc_fi0) + 131072 / 2.0
-            bc_fi0_cidx = np.floor(bc_fi0_idx+1).astype(np.int32)
-            bc_fi0_fidx = np.floor(bc_fi0_idx).astype(np.int32)
+            # self.rawfile.carr_fftpts代表fft的点数 self.rawfile.fs表示fft之后频率轴的频率周期
+            # 因此self.rawfile.carr_fftpts/self.rawfile.fs表示fft频率轴上1Hz间隔的采样点个数
+            # 因此(self.rawfile.carr_fftpts/self.rawfile.fs)*(bc_fi0)表示频率等于bc_fi0处的采样点序号
+            # 因为前面的carr_fft已经做过fftshift了，因此零频率对应self.rawfile.carr_fftpts/2.0处
+            bc_fi0_cidx = np.floor(bc_fi0_idx+1).astype(np.int32)  # 1*390625
+            bc_fi0_fidx = np.floor(bc_fi0_idx).astype(np.int32)  # 1*390625
+            # 因为bc_fi0_idx不一定为整数，因此取bc_fi0_idx相邻的两个整数位置上的点
             bc_fi0_fft  = (self.channels[prn].carr_fft[bc_fi0_cidx]*(bc_fi0_idx-bc_fi0_fidx)\
-                                +self.channels[prn].carr_fft[bc_fi0_fidx]*(bc_fi0_cidx-bc_fi0_idx))
-            bc_vel_fft  = bc_vel_fft + np.abs(bc_fi0_fft)**L_power
+                                +self.channels[prn].carr_fft[bc_fi0_fidx]*(bc_fi0_cidx-bc_fi0_idx))  # 1*390625
+            # 依照bc_fi0_idx与相邻两个整数位置点的距离进行加权算score
+            bc_vel_fft  = bc_vel_fft + np.abs(bc_fi0_fft)**L_power  # 1*390625
+            # 对每一颗卫星的score进行累加
 
 
-            bc_range        = np.linalg.norm(sats_ECI[0:3,prn_idx]-gX_ECI_fixed_vel[0:3,:], axis=0)
-            bc_pseudorange  = bc_range + C*(np.array(gX_ECI_fixed_vel)[3,:]/C-sats_ECI[3,prn_idx])
-            bc_transmitTime = rxTime - bc_pseudorange/C
+            bc_range        = np.linalg.norm(sats_ECI[0:3,prn_idx]-gX_ECI_fixed_vel[0:3,:], axis=0)  # 1*390625
+            bc_pseudorange  = bc_range + C*(np.array(gX_ECI_fixed_vel)[3,:]/C-sats_ECI[3,prn_idx])  # 1*390625
+            bc_transmitTime = rxTime - bc_pseudorange/C  # 1*390625
             bc_codeFracDiff = bc_transmitTime \
                               - self.channels[prn].ephemerides.timestamp['TOW']\
-                              - T_CA*(self.channels[prn].cp[mc]-self.channels[prn].ephemerides.timestamp['cp'])
-            bc_rc           = bc_codeFracDiff*F_CA
+                              - T_CA*(self.channels[prn].cp[mc]-self.channels[prn].ephemerides.timestamp['cp'])  # 1*390625
+            bc_rc           = bc_codeFracDiff*F_CA  # 1*390625
+            # 最终对应论文P13 list2.2的第1个式子
 
-            bc_rc0      = bc_rc - self.channels[prn].rc[mc]
+            bc_rc0      = bc_rc - self.channels[prn].rc[mc]  # 1*390625
 
-            bc_rc0_idx  = (self.rawfile.fs/self.channels[prn].fc[mc])*(-bc_rc0)+self.rawfile.S/2.0
-            bc_rc0_cidx = np.floor(bc_rc0_idx+1).astype(np.int32)
-            bc_rc0_fidx = np.floor(bc_rc0_idx).astype(np.int32)
+            bc_rc0_idx  = (self.rawfile.fs/self.channels[prn].fc[mc])*(-bc_rc0)+self.rawfile.S/2.0  # 1*390625
+            bc_rc0_cidx = np.floor(bc_rc0_idx+1).astype(np.int32)  # 1*390625
+            bc_rc0_fidx = np.floor(bc_rc0_idx).astype(np.int32)  # 1*390625
             bc_rc0_corr = (self.channels[prn].code_corr[bc_rc0_cidx]*(bc_rc0_idx-bc_rc0_fidx)\
-                                +self.channels[prn].code_corr[bc_rc0_fidx]*(bc_rc0_cidx-bc_rc0_idx))
-            bc_pos_corr = bc_pos_corr + np.abs(bc_rc0_corr)**L_power
+                                +self.channels[prn].code_corr[bc_rc0_fidx]*(bc_rc0_cidx-bc_rc0_idx))  # 1*390625
+            bc_pos_corr = bc_pos_corr + np.abs(bc_rc0_corr)**L_power  # 1*390625
+            # 与前面的同理
 
         if gXk_grid is not None:
             self.pos_corr = bc_pos_corr
@@ -394,11 +414,14 @@ class Receiver():
         # save gird corr result
         self.corr_pos[counter, :] = bc_pos_corr
         self.corr_vel[counter, :] = bc_vel_fft
+        # 储存score用于画图
 
-        mean_pos = gX_ECEF_fixed_vel[0:4, np.argmax(bc_pos_corr)]
-        mean_vel = gX_ECEF_fixed_pos[4:8, np.argmax(bc_vel_fft)]
+        mean_pos = gX_ECEF_fixed_vel[0:4, np.argmax(bc_pos_corr)]  # 4*1
+        mean_vel = gX_ECEF_fixed_pos[4:8, np.argmax(bc_vel_fft)]  # 4*1
+        # 找到score最大值对应的网格点，该网格点的状态向量即为所求
 
-        temp = np.vstack((mean_pos,mean_vel))-X_ECEF
+        temp = np.vstack((mean_pos,mean_vel))-X_ECEF  # 8*1
+        # 作为残差用于后续的扩展卡尔曼滤波
         return np.vstack((mean_pos,mean_vel))-X_ECEF
 
 
@@ -1042,34 +1065,38 @@ class NavigationGuesses():
     def generate_spread_grid(self):
 
         # dtmp = np.array([-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22])
-        dtmp = np.array([-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22])
+        dtmp = np.array([-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22])  # 1*25
 
-        dZ = np.kron(dtmp * 3,np.ones(25))
-        dY = np.kron(dZ,np.ones(25))
-        dX = np.kron(dY,np.ones(25))
-        dY = np.tile(dY,25)
-        dZ = np.tile(dZ,25*25)
-        self.dX = np.mat(np.vstack((dX, dY, dZ)))
+        dZ = np.kron(dtmp * 3,np.ones(25))  # 1*25*25=1*625
+        dY = np.kron(dZ,np.ones(25))  # 1*625*25=1*15625
+        dX = np.kron(dY,np.ones(25))  # 1*15625*25=1*390625
+        dY = np.tile(dY,25)  # 将dY重复25次串起来 1*15625*25=1*390625
+        dZ = np.tile(dZ,25*25)  # 将dZ重复25*25=625次串起来 1*625*25*25=1*390625
+        self.dX = np.mat(np.vstack((dX, dY, dZ)))  # 将dX dY dZ按行堆叠形成一个新的矩阵 3*390625
+        # 这样看网格各向位置坐标的范围为±66m，中心间隔为3m，外围间隔为9m，各向点数为25
 
-        dT = dtmp * 4
-        self.dT = np.tile(dT, 25*25*25)
-
-
-        dtmp = np.array([-12,-11,-10,-9,-8,-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7,8,9,10,11,12])
-
-        dZdot = np.kron(dtmp*3/10.0,np.ones(25))
-        dYdot = np.kron(dZdot,np.ones(25))
-        dXdot = np.kron(dYdot,np.ones(25))
-        dYdot = np.tile(dYdot,25)
-        dZdot = np.tile(dZdot,25*25)
-        self.dXdot = np.mat(np.vstack((dXdot, dYdot, dZdot)))
-
-        dTdot = dtmp * 0.25
-        self.dTdot = np.tile(dTdot, 25*25*25)
+        dT = dtmp * 4  # 1*25
+        self.dT = np.tile(dT, 25*25*25)  # 1*390625
+        # 钟差网格(钟差乘以光速)范围为±88m，中心间隔为4m，外围间隔为12m，各向点数为25
 
 
-        self.N = len(self.dT)
-        self.Ndot = len(self.dTdot)
+        dtmp = np.array([-12,-11,-10,-9,-8,-7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7,8,9,10,11,12])  # 1*25
+
+        dZdot = np.kron(dtmp*3/10.0,np.ones(25))  # 1*25*25=1*625
+        dYdot = np.kron(dZdot,np.ones(25))  # 1*625*25=1*15625
+        dXdot = np.kron(dYdot,np.ones(25))  # 1*15625*25=1*390625
+        dYdot = np.tile(dYdot,25)  # 将dYdot重复25次串起来 1*15625*25=1*390625
+        dZdot = np.tile(dZdot,25*25)  # 将dZdot重复25*25=625次串起来 1*625*25*25=1*390625
+        self.dXdot = np.mat(np.vstack((dXdot, dYdot, dZdot)))  # 将dXdot dYdot dZdot按行堆叠形成一个新的矩阵 3*390625
+        # 这样看网格各向速度的范围为±3.6m/s，间隔统一为0.3m/s，各向点数为25
+
+        dTdot = dtmp * 0.25  # 1*25
+        self.dTdot = np.tile(dTdot, 25*25*25)  # 1*390625
+        # 钟漂网格(钟漂乘以光速)范围为±3m/s，间隔统一为0.25m/s，各向点数为25
+
+
+        self.N = len(self.dT)  # 390625
+        self.Ndot = len(self.dTdot)  # 390625
 
         return
 

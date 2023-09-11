@@ -27,10 +27,10 @@ class RawFile():
                 metafile_name = metafile, rawfile_name = rawfile, verbose = verbose)
 
         # Sets rawfile settings
-        self.set_settings(abspath, fs, fi, ds, datatype, notes)
+        self.set_settings(abspath, fs, fi, ds, datatype, notes)  # 读取数据相关的设置
 
         # Open rawfile
-        self.open_rawfile()
+        self.open_rawfile()  # 打开指定路径下的数据文件
 
         # Sets rawsnippet settings
         self.set_rawsnippet_settings(T_CA,T_CA)
@@ -90,17 +90,17 @@ class RawFile():
     def set_settings(self, abspath, fs, fi, ds, datatype, notes):
 
         if fi != 0:
-            print('Warning, not zero-IF complex sampling.')
+            print('Warning, not zero-IF complex sampling.')  # 如果零中频则进行警告(原代码是默认信号是零中频的)
 
-        self.abspath = abspath
-        self.fs = fs
-        self.fi = fi
+        self.abspath = abspath  # 数据文件的绝对路径
+        self.fs = fs  # 采样频率
+        self.fi = fi  # 中频频率
         self.ds = ds
-        self.fcaid = ds*F_CA/F_L1
-        self.datatype = datatype
+        self.fcaid = ds*F_CA/F_L1  # 码频率与载波频率的比值，后面用来通过载波多普勒频移fi修正码频率fc
+        self.datatype = datatype  # 采样点数据的数据类型
         self.notes = notes
 
-        if self.datatype.fields is not None:
+        if self.datatype.fields is not None:  # 根据不同的数据类型，使用不同的读取数据的方法
             if (self.datatype.fields.keys() == ['arg_pi4']):
                 self.format_rawsnippet = self.format_rawsnippet_datatype_arg_pi4
             if (self.datatype.fields.keys() == ['i','q']):
@@ -167,21 +167,32 @@ class RawFile():
 
     def set_rawsnippet_settings(self, T, T_big, verbose=True):
 
-        self.T = T                                 # float (s)
-        self.N = int(ceil(self.T/T_CA))           # number of 1 millisecond blocks
-        self.S = int(ceil(T*self.fs))             # int   (samples)
+        self.T = T                                 # float (s) 每个历元读取数据的时间
+        self.N = int(ceil(self.T/T_CA))           # number of 1 millisecond blocks T占多少个伪码周期
+        self.S = int(ceil(T*self.fs))             # int   (samples) T时间内的采样点个数
         if self.N == 10:
-            self.S = int(ceil(self.S/10.0)*10)        # 由于210的采样率为16367667，为了让S最后为10的倍数，不得已这样做
+            self.S = int(ceil(self.S/10.0)*10)        # 由于210A的采样率为16367667，为了让S最后为10的倍数，不得已这样做
         self.samp_idc = np.arange(0,self.S)        # int   array of indices (samples)
+        # 构造一个长度为S的数组(0 - S-1)，表示采样点的序列
         self.time_idc = self.samp_idc / self.fs    # float array of indices (s)
+        # 构造一个长度为S的数组(0 - S-1)，表示采样点时间的序列，T时间内有S个采样点
+        # 这个数组就是存储这S个采样点的采样时间，该序列中的每个值表示相应采样点对应的采样时间
         self.code_idc = self.time_idc * F_CA       # float array of indices (chips)
+        # 构造一个长度为S的数组(0 - S-1)，表示采样点伪码的序列，T时间内有S个采样点，这个数组就是存储这S个采样点在一个伪码序列的第几个码片
+        # 注意这里没取模，所以有可能大于伪码序列长度1023，该序列中的每个值表示相应采样点对应的码片值
 
         code_idc = np.arange(0,int(ceil(T_CA*self.fs))) / self.fs * F_CA # (chips)
+        # 与self.code_idc类似，但是是T_CA(0.001秒)，即一个伪码周期时间内采样点的伪码码片序列
         code_idc = np.fft.fftshift(np.where(code_idc>=L_CA/2.0,code_idc-L_CA,code_idc))
         self.code_fftidc = code_idc
+        # 例：[0~499] -> [0~249 -250~-1] -> [-250~249] 伪码FFT的频率轴，让频域的零频率移到FFT序列的中心
 
         self.carr_fftpts = 8 * (1 << (self.S).bit_length())
+        # (self.S).bit_length()表示采样点个数的位数，即采样点数量占二进制多少位
+        # 1 << (self.S).bit_length()表示将数字1左移(self.S).bit_length()位，即求得对采样点个数进行FFT所需要的点数(2的幂次方)
+        # 最后乘以8猜测是对应博士论文的第40页3.3.4部分，是经验上的取值
         self.carr_fftidc = np.fft.fftshift(np.fft.fftfreq(n = self.carr_fftpts, d = 1.0/self.fs))
+        # 载波FFT的频率轴，且让频域的零频率移到FFT序列的中心，该序列中的每个值表示相应采样点对应的频率值
 
         assert T_big >= T, 'Duty-cycle interval T_big=%.2fs has to be larger than or equal to T=%.2fs.'%(T,T_big)
 
