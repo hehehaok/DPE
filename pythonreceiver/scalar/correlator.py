@@ -44,10 +44,13 @@ class Correlator():
         """
         coarse_result_matrix, found, rc, fc, fi, cppr, cppm = self.coarse_acquisition(
                                                               rawfile, doppler_search_matrix, coherent, plot_signal)
+        # 并行码相位搜索
 
         rc, ri, fc, fi = self.fine_frequency_acquisition(rawfile, rc, fc, fi, doppler_search_matrix)
+        # 在之前的基础上对多普勒频率进行更精细的搜索
 
         return coarse_result_matrix, found, rc, ri, fc, fi, cppr, cppm
+        # 捕获结果矩阵、是否捕获成功、码相位、码频率、载波相位、载波频率、*、*
 
     def coarse_acquisition(self, rawfile, doppler_search_matrix, coherent, plot_signal):
         """
@@ -59,45 +62,49 @@ class Correlator():
         """
 
         # Create 2D doppler wipeoff signal matrix
-        doppler_wipeoff_signal_matrix = np.array(np.exp(-1j*(2*PI*(doppler_search_matrix+rawfile.fi)*rawfile.time_idc)))
+        doppler_wipeoff_signal_matrix = np.array(np.exp(-1j*(2*PI*(doppler_search_matrix+rawfile.fi)*rawfile.time_idc))) # 生成本地载波
 
         # Create code replica signal
-        code_replica_signal = self.chips.take(np.mod(np.floor(rawfile.code_idc),L_CA).astype(np.int32))
-        code_replica_signal_cfft = np.conjugate(np.fft.fft(code_replica_signal))
+        code_replica_signal = self.chips.take(np.mod(np.floor(rawfile.code_idc),L_CA).astype(np.int32)) # 生成本地伪码
+        code_replica_signal_cfft = np.conjugate(np.fft.fft(code_replica_signal)) # 本地伪码FFT
 
         # Initialize 2D coarse result matrix
-        coarse_result_matrix = np.zeros(np.shape(doppler_wipeoff_signal_matrix),dtype=complex)
+        coarse_result_matrix = np.zeros(np.shape(doppler_wipeoff_signal_matrix),dtype=complex) # 初始化捕获结果矩阵
 
         # Perform brute-force correlations across dopplers
         for doppler_idx, doppler_signal in enumerate(doppler_wipeoff_signal_matrix):
-            code_signal_fft = np.fft.fft(rawfile.rawsnippet*doppler_signal)
-            coarse_result_matrix[doppler_idx,:] = np.fft.ifft(code_signal_fft*code_replica_signal_cfft)
+            code_signal_fft = np.fft.fft(rawfile.rawsnippet*doppler_signal) # 原始数据去载波再FFT
+            coarse_result_matrix[doppler_idx,:] = np.fft.ifft(code_signal_fft*code_replica_signal_cfft) # 与本地伪码FFT相乘再IFFT得到相关结果
 
-        if rawfile.N != 1:
+        if rawfile.N != 1: # 由于捕获取的是0.01秒，即10个伪码周期，因此这里rawfile.N=10，需要相干积分
             tmp = np.reshape(coarse_result_matrix,(np.shape(coarse_result_matrix)[0],rawfile.N,rawfile.S/rawfile.N))
             if coherent :
-                coarse_result_matrix = np.sum(tmp,axis=1)
+                coarse_result_matrix = np.sum(tmp,axis=1) # 将10个伪码周期的相关结果相加得到相干积分结果
             else:
                 coarse_result_matrix = np.sum(np.abs(tmp),axis=1)
 
-        coarse_result_matrix_abs = np.abs(coarse_result_matrix)
+        coarse_result_matrix_abs = np.abs(coarse_result_matrix) # 此时的矩阵各向表示的量：[频率, 码相位]
 
         # Search for maximum correlation, estimate code phase, carrier doppler frequency
         max_percode  = np.max(coarse_result_matrix_abs,axis=0)
-        max_code_idx = max_percode.argmax()
-        max_dopp_idx = coarse_result_matrix_abs[:,max_code_idx].argmax()
-        rc = L_CA - rawfile.code_idc[max_code_idx]
-        fi = doppler_search_matrix[max_dopp_idx,0]
-        fc = F_CA + rawfile.fcaid*fi
+        max_code_idx = max_percode.argmax() # 得到矩阵最大值对应的码相位序号
+        max_dopp_idx = coarse_result_matrix_abs[:,max_code_idx].argmax() # 得到矩阵最大值对应的多普勒频率序号
+        rc = L_CA - rawfile.code_idc[max_code_idx] # 码相位
+        # 这里需要注意的是，由于之前接触到的MATLAB版本的接收机均是通过移动原数据文件中的采样点达到码相位对齐，因此码相位用的是rawfile.code_idc[max_code_idx]
+        # 而这里从后面的代码可以看出，这里是通过移动本地伪码的采样点达到码相位对齐，因此码相位是L_CA - rawfile.code_idc[max_code_idx]
+        fi = doppler_search_matrix[max_dopp_idx,0] # 多普勒频率
+        fc = F_CA + rawfile.fcaid*fi # 码频率
+        # fcaid=ds*F_CA/F_L1，其中ds=1，即码频率与载波频率的比值，可以理解为利用载波与伪码的频率关系，通过载波的多普勒得到伪码的多普勒，从而校准码频率
 
         # Mask maximum correlation, estimate peak statistics
-        peak = max_percode[max_code_idx]
-        mask_S = int(np.ceil(rawfile.fs/F_CA))
+        peak = max_percode[max_code_idx] # 得到矩阵最大值
+        mask_S = int(np.ceil(rawfile.fs/F_CA)) # 一个伪码码片对应的采样点个数
         mask_idx = (np.arange(-mask_S, mask_S+1) + max_code_idx)%(np.shape(max_percode)[0])
+        # 矩阵最大值前后一个码片范围的采样点序号，即一个完整相关峰的范围
 
-        max_percode[mask_idx] = 0
+        max_percode[mask_idx] = 0 # 将相关峰置零，即剩下的均为噪声
         cppr = peak / np.max(max_percode)
-        cppm = peak / self._trim_mean(max_percode, 10)
+        cppm = peak / self._trim_mean(max_percode, 10) # 峰值与噪声的比值作为捕获的检测量，大于2即视为捕获到卫星
 
         return coarse_result_matrix, cppm>2.0, rc, fc, fi, cppr, cppm
 
@@ -110,26 +117,27 @@ class Correlator():
         # Update code_idc based on new fc, generate code replica signal
         # Doesn't seem to make a difference here
 
-        code_idc = rawfile.time_idc*fc
-        code_replica_signal = self.chips.take(np.mod(np.floor(code_idc+rc),L_CA).astype(np.int32))
-        if_wipeoff_signal_matrix = np.array(np.exp(-1j * (2 * PI * rawfile.fi * rawfile.time_idc)))
-        zero_IF_signal = rawfile.rawsnippet * if_wipeoff_signal_matrix
+        code_idc = rawfile.time_idc*fc # 由于之前fc在之前的粗捕获已经校准过一次了，因此在这里重新用新的fc生成采样点伪码序号
+        code_replica_signal = self.chips.take(np.mod(np.floor(code_idc+rc),L_CA).astype(np.int32)) # 生成码相位为rc的本地伪码
+        if_wipeoff_signal_matrix = np.array(np.exp(-1j * (2 * PI * rawfile.fi * rawfile.time_idc))) # 生成本地载波
+        zero_IF_signal = rawfile.rawsnippet * if_wipeoff_signal_matrix # 去中频
 
         # Code wipeoff to get carrier only signal
-        carr_signal = (zero_IF_signal-np.mean(zero_IF_signal)) * code_replica_signal
+        carr_signal = (zero_IF_signal-np.mean(zero_IF_signal)) * code_replica_signal # 去直流分量后与本地伪码相乘即可视为仅含载波
 
         # FFT to get carrier in frequency domain
-        carr_signal_fft = np.fft.fftshift(np.fft.fft(carr_signal,rawfile.carr_fftpts))
+        carr_signal_fft = np.fft.fftshift(np.fft.fft(carr_signal,rawfile.carr_fftpts)) # 对载波做FFT
+        # 即类似于得到频谱图，然后找频谱图中幅值最大的频率分量所对应的频率
 
         # Mask frequencies outside search range
-        carr_signal_fft[rawfile.carr_fftidc<np.min(doppler_search_matrix)] = 0.0
+        carr_signal_fft[rawfile.carr_fftidc<np.min(doppler_search_matrix)] = 0.0 # 将频率搜索范围之外的FFT结果置零，即排除不可能的结果
         carr_signal_fft[rawfile.carr_fftidc>np.max(doppler_search_matrix)] = 0.0
 
-        max_carr_idx = np.abs(carr_signal_fft).argmax()
-        fine_frequency_result = carr_signal_fft[max_carr_idx]
-        ri = np.angle(fine_frequency_result)/(2.0*PI)
-        fi = rawfile.carr_fftidc[max_carr_idx]
-        fc = F_CA + rawfile.fcaid*fi
+        max_carr_idx = np.abs(carr_signal_fft).argmax() # 找到幅值最大的频率分量对应的频率所在序号
+        fine_frequency_result = carr_signal_fft[max_carr_idx] # FFT最大幅值
+        ri = np.angle(fine_frequency_result)/(2.0*PI) # 载波相位
+        fi = rawfile.carr_fftidc[max_carr_idx] # 多普勒频率，相比之前粗捕获的结果精度更高
+        fc = F_CA + rawfile.fcaid*fi # 码频率
 
         return rc, ri, fc, fi
 
@@ -141,28 +149,35 @@ class Correlator():
         # 修改
         # baseband = rawfile.rawsnippet*np.exp(-1j*((2.0*PI*fi*rawfile.time_idc) + (2.0*PI*ri)))
         baseband = rawfile.rawsnippet*np.exp(-1j*((2.0*PI*(fi+rawfile.fi)*rawfile.time_idc) + (2.0*PI*ri)))
+        # 原始数据乘以本地载波得到基带信号
 
         # Produce indices
-        fidc = rawfile.time_idc*fc + rc
+        fidc = rawfile.time_idc*fc + rc # 生成本地伪码采样点伪码序号，从这里也可以看出这个接收机是通过调整本地伪码来进行码相位对齐
 
-        eidc = np.mod(np.floor(fidc + self.offset),L_CA).astype(np.int32) # early indices
-        pidc = np.mod(np.floor(fidc              ),L_CA).astype(np.int32) # prompt indices
-        lidc = np.mod(np.floor(fidc - self.offset),L_CA).astype(np.int32) # late indices
+        eidc = np.mod(np.floor(fidc + self.offset),L_CA).astype(np.int32)
+        pidc = np.mod(np.floor(fidc              ),L_CA).astype(np.int32)
+        lidc = np.mod(np.floor(fidc - self.offset),L_CA).astype(np.int32)
+        # 得到超前、即时、滞后码的本地伪码采样点序号
 
         # Produce shifted replica signals.
         # numpy.take returns array values from given indices
-        early  = self.chips.take(eidc)
-        prompt = self.chips.take(pidc)
-        late   = self.chips.take(lidc)
+        early  = self.chips.take(eidc) # 超前码
+        prompt = self.chips.take(pidc) # 即时码
+        late   = self.chips.take(lidc) # 滞后码
 
         # Determine boundaries in samples
         # (+1 is added to include the sample during array indexing)
-        idxs1 = np.floor((L_CA-rc) * (rawfile.fs/fc)).astype(np.int32) + 1
-        idxs2 = np.floor((2.0*L_CA-rc) * (rawfile.fs/fc)).astype(np.int32) + 1
+        # 由于这个接收机是通过调整本地伪码来进行码相位对齐，因此一个历元取的数据中可能会存在不同伪码周期的数据，可以自行画图理解一下
+        idxs1 = np.floor((L_CA-rc) * (rawfile.fs/fc)).astype(np.int32) + 1 # 得到本历元数据第一个伪码周期的边沿
+        idxs2 = np.floor((2.0*L_CA-rc) * (rawfile.fs/fc)).astype(np.int32) + 1 # 得到本历元数据第二个伪码周期的边沿
+        # 两个边沿相隔一个伪码周期的采样点
 
+        # 由于这个接收机是通过调整本地伪码来进行码相位对齐，因此根据一个历元的时间长度可能会出现不同的情况
         # The normal case: the first boundary is within this window, and the
         # second boundary is outside this window.
         if  idxs1 <= rawfile.S < idxs2:
+            # 一个历元时间大于等于一个伪码周期，小于两个伪码周期
+            # 此时一个历元数据中存在连续两个伪码周期，且中间可能会发生比特跳变
             # The flow of this case is as follows:
             # First correlate part B and form signal   synchronous outputs.
             # Next  correlate part A and form receiver synchronous outputs.
@@ -171,6 +186,7 @@ class Correlator():
             # Segment the baseband vector into B and A parts.
             baseband_b = baseband[:idxs1]
             baseband_a = baseband[idxs1:]
+            # 取本历元数据的第一个伪码周期数据记为b，第二个伪码周期数据记为a
 
             # Get the correlations for segments B and A.
             e_b = np.inner(baseband_b, early[:idxs1])  # early  part B
@@ -178,42 +194,49 @@ class Correlator():
             l_b = np.inner(baseband_b, late[:idxs1])   # late   part B
             e_a = np.inner(baseband_a, early[idxs1:])  # early  part A
             p_a = np.inner(baseband_a, prompt[idxs1:]) # prompt part A
-            l_a = np.inner(baseband_a, late[idxs1:])   # late   part A
+            l_a = np.inner(baseband_a, late[idxs1:])   # late   part A # 对应部分进行相关
 
             # Prepare the signal synchronous correlation outputs.
             p_s1 = self.p_a + p_b # prompt signal synchronous
+            # 本历元b部分与上一个历元的a部分合起来是一个完整的伪码周期，不存在比特跳变，将相关结果相加保存起来
 
             # Record the part A correlations for use in the next update.
-            self.p_a = p_a
+            self.p_a = p_a # 保存本历元的a部分，与下一历元的b部分相加
 
             # Prepare the receiver synchronous correlation outputs.
-            pos = np.abs(e_b + p_b + l_b + e_a + p_a + l_a)
-            neg = np.abs(e_b + p_b + l_b - e_a - p_a - l_a)
+            pos = np.abs(e_b + p_b + l_b + e_a + p_a + l_a) # 假设a部分与b部分之间不存在比特跳变
+            neg = np.abs(e_b + p_b + l_b - e_a - p_a - l_a) # 假设a部分与b部分之间存在比特跳变
 
             e_r, p_r, l_r = 0, 0, 0
 
-            if pos > neg: # there was no polarity change from B to A
+            if pos > neg: # there was no polarity change from B to A 说明不存在比特跳变
                 e_r = e_b + e_a # early  receiver synchronous
                 p_r = p_b + p_a # prompt receiver synchronous
                 l_r = l_b + l_a # late   receiver synchronous
-            else: # there was a polarity change from B to A
+            else: # there was a polarity change from B to A 说明存在比特跳变
                 e_r = e_b - e_a # early  receiver synchronous
                 p_r = p_b - p_a # prompt receiver synchronous
                 l_r = l_b - l_a # late   receiver synchronous
 
             return e_r.real, e_r.imag, p_r.real, p_r.imag, l_r.real, l_r.imag, 1, -np.sign([p_s1.real])
+            # 取实部和虚部即分别表示同相支路和正交支路的结果
+            # 返回值中的1表示相关三种情况的序号
+            # -np.sign([p_s1.real])即可以表示一个完整伪码周期的相关结果的符号
 
         if  idxs1 < idxs2 <= rawfile.S:
-
+            # 一个历元时间大于等于两个伪码周期
+            # 此时一个历元数据中存在至少连续三个伪码周期，且中间可能会发生比特跳变
             # The flow of this case is as follows:
             # First correlate part B and form signal synchronous outputs.
             # Next correlate an A & B pair and form signal synchronous outputs.
             # Finally correlate part A and form receiver synchronous outputs.
 
             # Segment the baseband vector into B, AB, and A parts.
-            baseband_b = baseband[:idxs1]
+            baseband_b = baseband[:idxs1] #
             baseband_s = baseband[idxs1:idxs2]
             baseband_a = baseband[idxs2:]
+            # 取本历元数据的第一个伪码周期数据记为b，第二个伪码周期数据记为s,第二个伪码周期数据之后的部分记为a
+            # 其中s是一个完整的伪码周期
 
             # Get the correlations for the first B segment.
             e_b = np.inner(baseband_b, early[:idxs1])  # early  part B
@@ -238,6 +261,8 @@ class Correlator():
             # Record the part A correlations for use in the next update.
             self.p_a = p_a
 
+            # 以下与第一种情况类似，需要对b到s，s到a的所有比特跳变情况进行考虑
+            # 【疑问】如果历元时间大于3个伪码周期，那a中不是包含多个伪码周期数据吗?
             # Prepare the receiver synchronous correlation outputs.
             pos = np.abs(e_b + p_b + l_b + e_s + p_s + l_s)
             neg = np.abs(e_b + p_b + l_b - e_s - p_s - l_s)
@@ -267,6 +292,9 @@ class Correlator():
             return e_r.real, e_r.imag, p_r.real, p_r.imag, l_r.real, l_r.imag, 2, -np.sign([p_s1.real,p_s2.real])
 
         if  rawfile.S < idxs1:
+
+            # 一个历元时间小于一个伪码周期
+            # 此时一个历元数据中仅有一个伪码周期的部分数据，不存在比特跳变的现象
             # The flow of this case is as follows:
             # First correlate part B, actually a continuation of A from the
             # last correlation window.  Form the receiver synchronous outputs.

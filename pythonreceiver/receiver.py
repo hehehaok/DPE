@@ -463,20 +463,24 @@ class Receiver():
 
         original_T = self.rawfile.T
         original_T_big = self.rawfile.T_big
+        # self.rawfile.T和self.rawfile.T_big默认值是0.001秒，即跟踪一个历元0.001秒
+        # 捕获时需要多一点时间，从而进行相干积分（默认取的是0.01秒，即10个伪码周期）
+        # 这里预先将之前的默认值储存在临时变量中
 
         acq_results = []
 
-        self.rawfile.set_rawsnippet_settings(T=T, T_big=T)
+        self.rawfile.set_rawsnippet_settings(T=T, T_big=T) # 捕获T默认取的是0.01秒，即10个伪码周期
 
-        print('First %.3fs'%(T))
-        self.rawfile.update_rawsnippet()
-        self.m_samp[self._mcount] = self.rawfile.rawfile_samp
-        self.m_time[self._mcount] = self.rawfile.rawfile_time
+        # 这个接收机会进行两次捕获，然后取cppm较大的那一个捕获结果
+        print('First %.3fs'%(T)) # 第一次捕获
+        self.rawfile.update_rawsnippet() # 读取数据文件
+        self.m_samp[self._mcount] = self.rawfile.rawfile_samp # 记录当前历元第一个采样点在数据文件中的采样点序号
+        self.m_time[self._mcount] = self.rawfile.rawfile_time # 记录当前历元第一个采样点在数据文件中的时间
 
         for prn in prn_list:
 
             result_matrix, found, rc, ri, fc, fi, cppr, cppm = \
-            self.channels[prn].correlator.search_signal(self.rawfile)
+            self.channels[prn].correlator.search_signal(self.rawfile) # 并行码相位搜索
 
             acq_results.append([found, rc, ri, fc, fi, cppr, cppm])
 
@@ -486,18 +490,19 @@ class Receiver():
 
         print('')
 
-        print('Second %.3fs'%(T))
-        self.rawfile.update_rawsnippet()
+        print('Second %.3fs'%(T)) # 第二次捕获
+        self.rawfile.update_rawsnippet() # 读取数据文件
 
         for prn_idx, prn in enumerate(prn_list):
 
             result_matrix, found, rc, ri, fc, fi, cppr, cppm = \
-            self.channels[prn].correlator.search_signal(self.rawfile)
+            self.channels[prn].correlator.search_signal(self.rawfile) # 并行码相位搜索
 
-            if cppm > acq_results[prn_idx][-1]:
+            if cppm > acq_results[prn_idx][-1]: # 若第二次捕获结果cppm更大，则更新捕获结果
 
                 rc = np.mod(rc-fc*T, L_CA)
                 ri = np.mod(ri-fi*T, 1.0)
+                # 捕获结果最终储存的是数据最开始的码/载波相位，因此需要推演到上一个0.01秒的码/载波相位
 
                 if update:
                     self.channels[prn].set_scalar_params(rc=rc, ri=ri, fc=fc, fi=fi)
@@ -519,8 +524,9 @@ class Receiver():
 
         print('')
 
-        self.rawfile.seek_rawfile(-2*self.rawfile.S)
-        self.rawfile.set_rawsnippet_settings(T=original_T, T_big=original_T_big)
+        self.rawfile.seek_rawfile(-2*self.rawfile.S) # 让文件指针重新指向捕获前的采样点位置
+        self.rawfile.set_rawsnippet_settings(T=original_T, T_big=original_T_big) # 将数据读取重新设置为一个历元0.001秒
+        # 即设置均恢复到捕获前，准备进行跟踪
 
         return acq_results
 
@@ -529,18 +535,18 @@ class Receiver():
         for i in range(mtrack):
 
             # 1. get rawsnippet
-            self.rawfile.update_rawsnippet()
-            self.m_samp[self._mcount] = self.rawfile.rawfile_samp
-            self.m_time[self._mcount] = self.rawfile.rawfile_time
+            self.rawfile.update_rawsnippet() # 读取数据文件
+            self.m_samp[self._mcount] = self.rawfile.rawfile_samp # 记录当前历元第一个采样点在数据文件中的采样点序号
+            self.m_time[self._mcount] = self.rawfile.rawfile_time # 记录当前历元第一个采样点在数据文件中的时间
 
             # 2. perform correlation
             # 3. perform time update
             for prn in self.channels:
-                self.channels[prn].scalar_correlation()
-                self.channels[prn].scalar_time_update()
+                self.channels[prn].scalar_correlation() # 标量跟踪中相关器有关的操作
+                self.channels[prn].scalar_time_update() # 更新通道参数
 
             # 4. increment measurement count (change time point/boundary)
-            self._mcount = self._mcount + 1
+            self._mcount = self._mcount + 1 # 历元数加一
 
             # 5. perform measurement update
             for prn in self.channels:

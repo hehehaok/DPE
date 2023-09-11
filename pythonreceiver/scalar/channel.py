@@ -103,20 +103,20 @@ class Channel():
 
     def scalar_correlation(self):
 
-        mc = self.receiver._mcount
+        mc = self.receiver._mcount # 当前历元序号
 
         # Correlation
         self.iE[mc], self.qE[mc], self.iP[mc], self.qP[mc], self.iL[mc], self.qL[mc], cp_compl, cp_sign \
         = self.correlator.scalar_correlate(self.rawfile, self.rc[mc], self.ri[mc], self.fc[mc], self.fi[mc])
 
         # Calculate lock and SNR
-        self.lock[mc], self.lockval[mc] = self.lockdetector.update(self.iP[mc], self.qP[mc])
-        self.snr[mc] = self.snrmeter.update(self.iP[mc], self.qP[mc])
+        self.lock[mc], self.lockval[mc] = self.lockdetector.update(self.iP[mc], self.qP[mc]) # 更新锁定检测
+        self.snr[mc] = self.snrmeter.update(self.iP[mc], self.qP[mc]) # 更新载噪比
 
         assert cp_compl in [0,1,2]
 
         for cp_compl_idx in range(cp_compl):
-            self.cp_sign[self._cpcount] = cp_sign[cp_compl_idx]
+            self.cp_sign[self._cpcount] = cp_sign[cp_compl_idx] # 记录各伪码周期的相关结果的符号，用于后续进行导航电文比特的帧同步
             self._cpcount = self._cpcount + 1
 
         return
@@ -176,17 +176,17 @@ class Channel():
         mc = self.receiver._mcount
 
         # Increment phase
-        self.rc[mc+1] = np.mod(self.rc[mc]+self.fc[mc]*self.rawfile.T, L_CA)
-        self.ri[mc+1] = np.mod(self.ri[mc]+self.fi[mc]*self.rawfile.T, 1.0)
+        self.rc[mc+1] = np.mod(self.rc[mc]+self.fc[mc]*self.rawfile.T, L_CA) # 更新码相位
+        self.ri[mc+1] = np.mod(self.ri[mc]+self.fi[mc]*self.rawfile.T, 1.0) # 更新载波相位
 
         # Record number of completed code periods
-        self.cp[mc+1] = self._cpcount
+        self.cp[mc+1] = self._cpcount # 记录当前的伪码周期数
 
         # Frequency is the same
         self.fc[mc+1] = self.fc[mc]
         self.fi[mc+1] = self.fi[mc]
         self.fi_bias[mc+1] = self.fi_bias[mc]
-        self.fc_bias[mc+1] = self.fc_bias[mc]
+        self.fc_bias[mc+1] = self.fc_bias[mc] # 码频率和载波频率相关保持不变，待后续由锁相环进行调整
 
         return
 
