@@ -535,29 +535,29 @@ class Receiver():
         for i in range(mtrack):
 
             # 1. get rawsnippet
-            self.rawfile.update_rawsnippet() # 读取数据文件
-            self.m_samp[self._mcount] = self.rawfile.rawfile_samp # 记录当前历元第一个采样点在数据文件中的采样点序号
-            self.m_time[self._mcount] = self.rawfile.rawfile_time # 记录当前历元第一个采样点在数据文件中的时间
+            self.rawfile.update_rawsnippet()  # 读取数据文件
+            self.m_samp[self._mcount] = self.rawfile.rawfile_samp  # 记录当前历元第一个采样点在数据文件中的采样点序号
+            self.m_time[self._mcount] = self.rawfile.rawfile_time  # 记录当前历元第一个采样点在数据文件中的时间
 
             # 2. perform correlation
             # 3. perform time update
             for prn in self.channels:
-                self.channels[prn].scalar_correlation() # 标量跟踪中相关器有关的操作
-                self.channels[prn].scalar_time_update() # 更新通道参数
+                self.channels[prn].scalar_correlation()  # 标量跟踪中相关器有关的操作
+                self.channels[prn].scalar_time_update()  # 更新通道参数
 
             # 4. increment measurement count (change time point/boundary)
-            self._mcount = self._mcount + 1 # 历元数加一
+            self._mcount = self._mcount + 1  # 历元数加一
 
             # 5. perform measurement update
             for prn in self.channels:
-                self.channels[prn].scalar_measurement_update()
+                self.channels[prn].scalar_measurement_update()  # 更新环路
 
             # 6. 更新跟踪状态
             if i % 500 == 0:
                 print('%3s %3s %6s %12s' % ('TIME(s)', 'PRN', 'STATE', 'C/N0(dB-Hz)'))
                 curr_time = self._mcount / 1000.
                 for prn in self.channels:
-                    state = 'LOCK' if self.channels[prn].lock[self._mcount-1] else 'UNLOCK'
+                    state = 'LOCK' if self.channels[prn].lock[self._mcount-1] else 'UNLOCK'  # 利用锁定检测的输出判断是否环路是否锁定
                     print('%.2f %4d %8s %6.2f ' % (curr_time, prn, state, self.channels[prn].snr[self._mcount-1]))
 
 
@@ -810,7 +810,7 @@ class Receiver():
 
         save_dict['receiver_channels'] = sorted(self.channels.keys())
         try:
-            save_dict['corr_pos'] = self.corr_pos
+            save_dict['corr_pos'] = self.corr_pos  # 将DPE解算的score进行保存
             save_dict['corr_vel'] = self.corr_vel
         except:
             print('Receiver instance has no attribute \'corr_pos\' and \'corr_vel\'')
@@ -823,7 +823,7 @@ class Receiver():
 
         for prn in self.channels:
             self.channels[prn].save_measurement_logs(os.path.join(dirname,subdir,'channel_%d.mat'%(prn)), os.path.join(dirname,subdir,'channel_%d.csv'%(prn)))
-
+            # 储存每个通道的跟踪结果
         return
 
     def save_scalar_handoff(self, prn_list, dirname=None, subdir=''):
@@ -942,6 +942,7 @@ class Receiver():
             self.rawfile.seek_rawfile(self.m_samp[self._mcount-1]+self.rawfile.S,0)
         else:
             self.rawfile.seek_rawfile(self.m_samp[self._mcount],0)
+        # 载入数据时将文件指针移动到载入数据的结尾处，即例如载入前3秒的数据，则后续处理则从第3秒开始
 
         #if prn_list is None:
         prn_list = list(load_dict['receiver_channels'][0])
@@ -957,7 +958,7 @@ class Receiver():
         self.del_channels(del_list)
 
         for prn in self.channels:
-            self.channels[prn].load_measurement_logs(os.path.join(dirname,subdir,'channel_%d.mat'%(prn)))
+            self.channels[prn].load_measurement_logs(os.path.join(dirname,subdir,'channel_%d.mat'%(prn)))  # 载入每个通道的数据
 
         return
 
@@ -971,7 +972,7 @@ class Receiver():
 
         for prn in prn_list:
             print('PRN %d'%(prn))
-            dataparser.parse_ephemerides(self.channels[prn], m_start, m_end)
+            dataparser.parse_ephemerides(self.channels[prn], m_start, m_end)  # 解码获得星历参数
 
     def get_GDOP(self,X_ECEF = None,rxTime_a = None,prn_list = None,verbose = False):
         if prn_list is None:

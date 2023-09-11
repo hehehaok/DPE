@@ -4,53 +4,54 @@ execfile('setting_oak_cleanStatic.py')
 
 ### Main code starts
 from pythonreceiver.libgnss.constants import *
-from pythonreceiver.libgnss import rawfile,utils,satpos,ephemeris
-from pythonreceiver.scalar import channel, correlator, discriminator, loopfilter,naveng
+from pythonreceiver.libgnss import rawfile, utils, satpos, ephemeris
+from pythonreceiver.scalar import channel, correlator, discriminator, loopfilter, naveng
 from pythonreceiver import receiver
 import printer
 import threading
 
 import numpy as np
 import scipy.io as sio
-import time,os
+import time
+import os
 
 # 实例化接收机
 scalar_sdr = receiver.Receiver(rawfile.RawFile(metafile=None,
-                                               abspath=datpath + filename, # 数据所在路径
-                                               fs=fs, fi=fi, ds=1.0, # 采样率、中频频率、比例系数（不用管）
-                                               datatype=datatype, # 单个采样点的数据类型
+                                               abspath=datpath + filename,  # 数据所在路径
+                                               fs=fs, fi=fi, ds=1.0,  # 采样率、中频频率、比例系数（不用管）
+                                               datatype=datatype,  # 单个采样点的数据类型
                                                notes='Data set ' + refname),
-                                               mcount_max=run_time * 1000 + 1) # 总的历元数
+                                               mcount_max=run_time * 1000 + 1)  # 总的历元数
 
-first_dir = 'end-of-3sec' # 前三秒标量跟踪结果保存路径
-second_dir = 'end-of-%dsec' % proc_time # 所有时间，即proc_time标量跟踪结果保存路径
+first_dir = 'end-of-3sec'  # 前三秒标量跟踪结果保存路径
+second_dir = 'end-of-%dsec' % proc_time  # 所有时间，即proc_time标量跟踪结果保存路径
 
 # 捕获
 if not load_acq:
     print('Start scalar acquisition @ %ds' % init_time)
-    scalar_sdr.add_channels(prn_list) # 初始化各通道
-    scalar_sdr.rawfile.seek_rawfile(init_time * 1000 * scalar_sdr.rawfile.S) # 跳过init_time对应的时间
-    acq_results = scalar_sdr.scalar_acquisition(prn_list) # 捕获
+    scalar_sdr.add_channels(prn_list)  # 初始化各通道
+    scalar_sdr.rawfile.seek_rawfile(init_time * 1000 * scalar_sdr.rawfile.S)  # 跳过init_time对应的时间
+    acq_results = scalar_sdr.scalar_acquisition(prn_list)  # 捕获
     del_acq_list = []
     for prn_idx, prn in enumerate(prn_list):
         if not acq_results[prn_idx][0]:
             del_acq_list += [prn]
-    scalar_sdr.del_channels(del_acq_list) # 如果acq_results对应卫星捕获结果为False，则删除该通道，即跟踪阶段不再跟踪该卫星
+    scalar_sdr.del_channels(del_acq_list)  # 如果acq_results对应卫星捕获结果为False，则删除该通道，即跟踪阶段不再跟踪该卫星
     save_dic = {'acq_results': acq_results, 'prn_list': prn_list, 'init_time': init_time}
-    sio.savemat(os.path.join(acq_dir, 'acq.mat'), save_dic) # 保存捕获结果
+    sio.savemat(os.path.join(acq_dir, 'acq.mat'), save_dic)  # 保存捕获结果
 else:
-    scalar_sdr.load_acq_results(acq_dir) # 载入现有捕获结果
+    scalar_sdr.load_acq_results(acq_dir)  # 载入现有捕获结果
 print ('Scalar acquisition completed.')
 
 # 跟踪
 if not load_trk:
     print('Start scalar tracking @ %ds for %ds' % (init_time, run_time))
-    scalar_sdr.scalar_track(mtrack=3000) # 先跟踪3秒然后储存结果作为后续DPE处理的起点
-    scalar_sdr.save_measurement_logs(dirname = prepath,subdir= first_dir) # 储存前3秒的跟踪结果
-    scalar_sdr.scalar_track(mtrack=run_time * 1000 - 3000) # 完成剩余时间的跟踪
-    scalar_sdr.save_measurement_logs(dirname = prepath,subdir= second_dir) # 储存run_time时间的跟踪结果
+    scalar_sdr.scalar_track(mtrack=3000)  # 先跟踪3秒然后储存结果作为后续DPE处理的起点
+    scalar_sdr.save_measurement_logs(dirname=prepath, subdir=first_dir)  # 储存前3秒的跟踪结果
+    scalar_sdr.scalar_track(mtrack=run_time * 1000 - 3000)  # 完成剩余时间的跟踪
+    scalar_sdr.save_measurement_logs(dirname=prepath, subdir=second_dir)  # 储存run_time时间的跟踪结果
 else:
-    scalar_sdr.load_measurement_logs(dirname = prepath,subdir= second_dir) # 载入现有跟踪结果
+    scalar_sdr.load_measurement_logs(dirname=prepath, subdir=second_dir)  # 载入现有跟踪结果
 
 # 解算星历
 dir_eph = prepath + 'eph'
@@ -58,11 +59,11 @@ if not os.path.exists(dir_eph):
     os.makedirs(dir_eph)
 for prn in scalar_sdr.channels:
     try:
-        scalar_sdr.parse_ephemerides(prn_list=[prn], m_start=40)
+        scalar_sdr.parse_ephemerides(prn_list=[prn], m_start=40)  # 解码获得星历参数
         scalar_sdr.channels[prn].ephemerides.save_ephemerides(dir_eph + '/channel%d.mat' % prn, dir_eph + '/channel%d.csv' % prn)
     except:
         pass
-print ('Scalar tracking completed.  Launching DP.')
+print ('Scalar tracking completed.  Launching DP.')  # 标量跟踪结束
 
 # --------------------------------------------------------DPE-----------------------------------------------------------
 

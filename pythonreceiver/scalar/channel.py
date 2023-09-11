@@ -249,26 +249,33 @@ class Channel():
 
         mc = self.receiver._mcount
 
-        # Get carrier discriminations (errors)
+        # 1.Get carrier discriminations (errors)
         self.dpi[mc], self.dfi[mc] \
-        = self.idiscriminator.update(self.iP[mc-1], self.qP[mc-1])
+        = self.idiscriminator.update(self.iP[mc-1], self.qP[mc-1])  # 载波环鉴相器
 
-        # Get code discriminations (errors)
+        # 2.Get code discriminations (errors)
         self.dpc[mc], self.dfc[mc] \
-        = self.cdiscriminator.update(self.iE[mc-1], self.qE[mc-1], self.iL[mc-1], self.qL[mc-1])
+        = self.cdiscriminator.update(self.iE[mc-1], self.qE[mc-1], self.iL[mc-1], self.qL[mc-1])  # 码环鉴相器
 
-        # Filter, phase errors lumped in frequency
-        self.di[mc] = self.iloopfilter.update(xp = self.dpi[mc], xf = self.dfi[mc])
-        self.dc[mc] = self.cloopfilter.update(xp = self.dpc[mc], xf = self.dfc[mc])
+        # 3.Filter, phase errors lumped in frequency
+        self.di[mc] = self.iloopfilter.update(xp = self.dpi[mc], xf = self.dfi[mc])  # 载波环环路滤波器
+        self.dc[mc] = self.cloopfilter.update(xp = self.dpc[mc], xf = self.dfc[mc])  # 码环环路滤波器
 
-        # Get code and carrier frequency errors, phase errors lumped in frequency
+        # 4.Get code and carrier frequency errors, phase errors lumped in frequency
         self.efi[mc] =  (self.fi_bias[mc] + self.di[mc]) - self.fi[mc-1]
         self.efc[mc] = ((F_CA + self.fc_bias[mc] + self.dc[mc]) + self.rawfile.fcaid*(self.fi_bias[mc] + self.di[mc]))\
                        - self.fc[mc-1]
 
-        # Correct carrier and code frequency
-        self.fi[mc] = self.fi[mc-1]+ self.efi[mc]
-        self.fc[mc] = self.fc[mc-1]+ self.efc[mc]
+        # 5.Correct carrier and code frequency
+        self.fi[mc] = self.fi[mc-1]+ self.efi[mc] # 更新多普勒频率
+        self.fc[mc] = self.fc[mc-1]+ self.efc[mc] # 更新码频率
+        # 其实把上面4的式子变换一下，可以看到
+        # self.fi[mc] = self.fi[mc-1]+ self.efi[mc] = self.fi_bias[mc] + self.di[mc]
+        # 即多普勒频率+环路滤波器输出=更新后的多普勒频率（self.fi其实与self.fi_bias一样都表示多普勒频率）
+        # self.fc[mc] = self.fc[mc-1]+ self.efc[mc]
+        #             = (F_CA + self.fc_bias[mc] + self.dc[mc]) + self.rawfile.fcaid*(self.fi_bias[mc] + self.di[mc])
+        #             = (F_CA + self.fc_bias[mc] + self.dc[mc]) + self.rawfile.fcaid*self.fi[mc]
+        # 即码频率+码多普勒+环路滤波器输出+载波辅助校正=更新后的码频率
 
         return
 
