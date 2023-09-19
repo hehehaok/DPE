@@ -4,7 +4,7 @@ fclose('all');
 clc;
 
 %% 数据选择
-dataFlag = 1; % 0-芬兰 1-OAKBAT 2-TEXBAT 3-CPNTBAT
+dataFlag = 2; % 0-芬兰 1-OAKBAT 2-TEXBAT 3-CPNTBAT
 switch dataFlag
     case 0
         dataDir = 'finland_cleanStatic/';
@@ -13,15 +13,17 @@ switch dataFlag
     case 1
         dataDir = 'oak_cleanStatic/';
         truePosInLLA = [35.930544444, -84.310652778, 248.6000]; % 真实位置(纬度(北正南负) 经度(东正西负) 高度) OAKBAT
-        secDir = 'test0907_1_skip50s_proc40s/';
+        secDir = 'test10912_skip50s_proc40s/';
     case 2
-        dataDir = 'finland_cleanStatic/';
-        truePosInLLA = [60.161086788889, 24.545448080556, 54.1640000026673]; % 真实位置(纬度(北正南负)经度(东正西负) 高度) TEXBAT
-        secDir = 'test1proc40s/';     
+        dataDir = 'texbat_ds4/';
+        truePosInLLA = [30.287528140, -97.735720004, 166.1898]; % 真实位置(纬度(北正南负)经度(东正西负) 高度) TEXBAT
+%         secDir = 'test20913_skip20s_proc40s/';
+        secDir = 'test10912_skip300s_proc40s/'; 
     case 3
-        dataDir = 'oak_cleanStatic/';
-        truePosInLLA = [35.930544444, -84.310652778, 248.6000]; % 真实位置(纬度(北正南负) 经度(东正西负) 高度) CPNTBAT
-        secDir = 'test3proc60s/';
+%         dataDir = 'cpntbat_cs08/';
+        dataDir = 'CPNTBAT_cleanStatic/';
+        truePosInLLA = [22.803448, 113.953065, 50.0000]; % 真实位置(纬度(北正南负) 经度(东正西负) 高度) CPNTBAT
+        secDir = '0914test1_skip20s_proc40s/';
     otherwise
 end
 
@@ -68,6 +70,7 @@ for ii = 1:size(data, 1)
     % 由于DPE每次解算均是以前一次解算结果为中心建立网格
     % 因此这里的ENU是本次的DPE解算结果相对于前一次的DPE解算结果的ENU坐标
 end
+DPEresultInECEF = data(:, [4 5 6]); % DPE解算位置 ECEF 
 
 %%  坐标误差图
 figure(100);
@@ -81,6 +84,20 @@ ylabel('误差(m)');
 grid on;
 axis('tight'); 
 legend('U','N','E');
+a = axis;
+axis([a(1) a(2) a(3)-1 a(4)+1])
+
+figure(101);
+h2 = plot(fliplr(DPEresultInECEF-truePosInECEF'), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ECEF误差
+nameArr = {'color'};
+valueArr = {'#5d70ea'; '#e34f26'; '#fbbc05'};
+set(h2, nameArr, valueArr);
+title('坐标误差(ECEF)');
+xlabel(['测算周期: ', num2str(round((data(2,3)-data(1,3))*1000)), 'ms']);
+ylabel('误差(m)');
+grid on;
+axis('tight'); 
+legend('Z','Y','X');
 a = axis;
 axis([a(1) a(2) a(3)-1 a(4)+1])
 
@@ -142,7 +159,7 @@ org_indy = find(dY == 0);
 DPE_y = flipud(DPE_y);
 
 % for epoch = 1 : numOfEpoch    
-for epoch = 400
+for epoch = 100
     figure(300); 
     curr_corr_pos = corr_pos(epoch, :); % 1*390625
     corr_xy_zdt = reshape(curr_corr_pos, [625, 625]); % 625*625

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# execfile('setting_finland.py')
-execfile('setting_oak_cleanStatic.py')
+execfile('setting_cpntbat_cleanStatic.py')
+# execfile('setting_oak_cleanStatic.py')
 
 ### Main code starts
 from pythonreceiver.libgnss.constants import *
