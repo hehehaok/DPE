@@ -412,8 +412,10 @@ class Receiver():
         #mean_vel = np.sum(np.multiply(gX_ECEF_fixed_pos[4:8],np.tile(bc_vel_fft,(4,1))),axis=1)/np.sum(bc_vel_fft)
 
         # save gird corr result
-        self.corr_pos[counter, :] = bc_pos_corr
-        self.corr_vel[counter, :] = bc_vel_fft
+        if counter % self.corr_interval == 0:
+            idx = counter / self.corr_interval
+            self.corr_pos[idx, :] = bc_pos_corr
+            self.corr_vel[idx, :] = bc_vel_fft
         # 储存score用于画图
 
         mean_pos = gX_ECEF_fixed_vel[0:4, np.argmax(bc_pos_corr)]  # 4*1

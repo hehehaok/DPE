@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-execfile('setting_cpntbat_cleanStatic.py')
+execfile('setting_texbat_ds4.py')
 # execfile('setting_oak_cleanStatic.py')
 
 ### Main code starts
@@ -23,7 +23,7 @@ scalar_sdr = receiver.Receiver(rawfile.RawFile(metafile=None,
                                                notes='Data set ' + refname),
                                                mcount_max=run_time * 1000 + 1)  # 总的历元数，每个历元0.001秒，即一个伪码周期
 
-first_dir = 'end-of-3sec'  # 前三秒标量跟踪结果保存路径
+first_dir = 'end-of-%dsec' % DPE_lead_time # 前DPE_lead_time秒标量跟踪结果保存路径
 second_dir = 'end-of-%dsec' % proc_time  # 所有时间，即proc_time标量跟踪结果保存路径
 
 # 捕获
@@ -46,9 +46,9 @@ print ('Scalar acquisition completed.')
 # 跟踪
 if not load_trk:
     print('Start scalar tracking @ %ds for %ds' % (init_time, run_time))
-    scalar_sdr.scalar_track(mtrack=3000)  # 先跟踪3秒然后储存结果作为后续DPE处理的起点
-    scalar_sdr.save_measurement_logs(dirname=prepath, subdir=first_dir)  # 储存前3秒的跟踪结果
-    scalar_sdr.scalar_track(mtrack=run_time * 1000 - 3000)  # 完成剩余时间的跟踪
+    scalar_sdr.scalar_track(mtrack=DPE_lead_time * 1000)  # 先跟踪DPE_lead_time秒然后储存结果作为后续DPE处理的起点
+    scalar_sdr.save_measurement_logs(dirname=prepath, subdir=first_dir)  # 储存前DPE_lead_time秒的跟踪结果
+    scalar_sdr.scalar_track(mtrack=(run_time * 1000 - DPE_lead_time * 1000))  # 完成剩余时间的跟踪
     scalar_sdr.save_measurement_logs(dirname=prepath, subdir=second_dir)  # 储存run_time时间的跟踪结果
 else:
     scalar_sdr.load_measurement_logs(dirname=prepath, subdir=second_dir)  # 载入现有跟踪结果
@@ -87,7 +87,7 @@ DPE_sdr.del_channels(del_clist)  # 仅有包含星历的通道被保留，若跟
 print ('DP Channels')
 print (DPE_sdr.channels.keys())
 
-DPE_sdr.rawfile.set_rawsnippet_settings(T=0.020, T_big=0.020)  # 每次读取数据设置为0.02秒，即一个解算历元为0.02秒
+DPE_sdr.rawfile.set_rawsnippet_settings(T=0.020, T_big=DPE_interval)  # 每次读取数据设置为0.02秒，即一个解算历元为0.02秒
 DPE_sdr.init_dp()  # DPE初始化
 print ('Init at', utils.ECEF_to_LLA(DPE_sdr.ekf.X_ECEF))
 
@@ -101,7 +101,8 @@ start = time.time()
 
 printer.header(csvfile)  # 在表格中打印表头(即第一行的各列标题)
 DPE_sdr.counter = 0  # 用于记录DPE的历元序号
-DPE_sdr.initGridInfo(counter_max)  # 初始化储存DPE相关结果的矩阵
+DPE_sdr.corr_interval = DPE_corr_save_interval / DPE_interval
+DPE_sdr.initGridInfo(counter_max/DPE_sdr.corr_interval)  # 初始化储存DPE相关结果的矩阵
 for mc in range(counter_max):
     DPE_sdr.dp_track(1)  # DPE解算，每次只处理一个历元
     DPE_sdr.counter += 1

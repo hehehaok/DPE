@@ -2,6 +2,7 @@
 # texbat_ds4
 import numpy as np
 import os
+import scipy.io as sio
 
 refname    = 'texbat_ds4'  # Simulated
 filename = 'texbat_ds4.bin'
@@ -17,10 +18,13 @@ ip_list       = [6] # Simulated
 weekno        = 2258 # If running simulated data
 #########未用到的参数
 
-start_time    = 300
+start_time    = 90
 proc_time     = 40
-max_lead_time = 0
-DPE_run_time = 10
+DPE_start_time = 100
+DPE_lead_time = DPE_start_time - start_time  # must make 3<=DPE_lead_time<=proc_time
+DPE_run_time = 50
+DPE_interval = 0.02  # 进行DPE的间隔
+DPE_corr_save_interval = 1  # 保存DPE流形结果图的间隔
 
 acq_only      = False
 load_acq = False
@@ -58,3 +62,9 @@ except:
 acq_dir = prepath + 'acq'
 if not os.path.exists(acq_dir):
     os.makedirs(acq_dir)
+
+# 保存运行时间相关参数
+save_dic = {'start_time': start_time, 'proc_time': proc_time,
+            'DPE_start_time': DPE_start_time, 'DPE_run_time': DPE_run_time,
+            'DPE_interval': DPE_interval, 'DPE_corr_save_interval': DPE_corr_save_interval}
+sio.savemat(os.path.join(postpath, 'dpe_runtime.mat'), save_dic)

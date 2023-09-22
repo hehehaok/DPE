@@ -18,7 +18,7 @@ switch dataFlag
         dataDir = 'texbat_ds4/';
         truePosInLLA = [30.287528140, -97.735720004, 166.1898]; % 真实位置(纬度(北正南负)经度(东正西负) 高度) TEXBAT
 %         secDir = 'test20913_skip20s_proc40s/';
-        secDir = 'test10912_skip300s_proc40s/'; 
+        secDir = 'test10921_skip90s_proc40s/'; 
     case 3
 %         dataDir = 'cpntbat_cs08/';
         dataDir = 'CPNTBAT_cleanStatic/';
@@ -40,6 +40,10 @@ csvData = importdata(csvDir);
 receiveFile = 'end-of-dp/receiver.mat';
 rxDir = [postdir secDir receiveFile];
 load(rxDir);
+
+% 导入运行时间相关参数
+dpeRunTimeFile = 'dpe_runtime.mat';
+load([postdir secDir dpeRunTimeFile]);
 
 %% 初始化数据
 data = csvData.data; % 定位结果数据
@@ -71,15 +75,16 @@ for ii = 1:size(data, 1)
     % 因此这里的ENU是本次的DPE解算结果相对于前一次的DPE解算结果的ENU坐标
 end
 DPEresultInECEF = data(:, [4 5 6]); % DPE解算位置 ECEF 
+timeAxis = double(DPE_start_time) + (1:size(data,1))*DPE_interval; % DPE解算结果时间坐标轴
 
 %%  坐标误差图
 figure(100);
-h1 = plot(fliplr(DPEresultInUTM-truePosInUTM), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ENU误差
+h1 = plot(timeAxis, fliplr(DPEresultInUTM-truePosInUTM), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ENU误差
 nameArr = {'color'};
 valueArr = {'#5d70ea'; '#e34f26'; '#fbbc05'};
 set(h1, nameArr, valueArr);
 title('坐标误差(ENU)');
-xlabel(['测算周期: ', num2str(round((data(2,3)-data(1,3))*1000)), 'ms']);
+xlabel('时间/s');
 ylabel('误差(m)');
 grid on;
 axis('tight'); 
@@ -88,12 +93,12 @@ a = axis;
 axis([a(1) a(2) a(3)-1 a(4)+1])
 
 figure(101);
-h2 = plot(fliplr(DPEresultInECEF-truePosInECEF'), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ECEF误差
+h2 = plot(timeAxis, fliplr(DPEresultInECEF-truePosInECEF'), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ECEF误差
 nameArr = {'color'};
 valueArr = {'#5d70ea'; '#e34f26'; '#fbbc05'};
 set(h2, nameArr, valueArr);
 title('坐标误差(ECEF)');
-xlabel(['测算周期: ', num2str(round((data(2,3)-data(1,3))*1000)), 'ms']);
+xlabel('时间/s');
 ylabel('误差(m)');
 grid on;
 axis('tight'); 
@@ -159,7 +164,7 @@ org_indy = find(dY == 0);
 DPE_y = flipud(DPE_y);
 
 % for epoch = 1 : numOfEpoch    
-for epoch = 100
+for epoch = 20
     figure(300); 
     curr_corr_pos = corr_pos(epoch, :); % 1*390625
     corr_xy_zdt = reshape(curr_corr_pos, [625, 625]); % 625*625
@@ -179,6 +184,8 @@ for epoch = 100
     
     xlabel('X'); ylabel('Y'); zlabel('Corr Score');
     grid('minor'); hold off; axis('tight');
+    current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
+    title(['current time:' num2str(current_time) 's']);
     view(-37.5, 30);
     
     % 网格位置验证图
@@ -194,10 +201,18 @@ for epoch = 100
     text(0, 0, '网格原点');
 
     xlabel('X');ylabel('Y');
+    title(['current time:' num2str(current_time) 's']);
     grid('minor');hold('off');axis('tight'); 
 end
 
-
+%% save fig
+figDir = ['saveFig/' dataDir secDir];
+mkdir(figDir);
+saveas(figure(100), [figDir 'ENU']);
+saveas(figure(101), [figDir 'ECEF']);
+saveas(figure(200), [figDir 'DPE_result']);
+saveas(figure(300), [figDir 'manifold']);
+saveas(figure(400), [figDir 'curr_epoch_grid']);
 
 
 
