@@ -111,35 +111,64 @@ figure(200);
 color = zeros(size(DPEresultInUTM));
 color(:, 2) = linspace(0.3, 1, size(DPEresultInUTM,1))';
 
-% 绘制起始点
-scatter3(0, 0, 0, 50, 'r', 'filled'); % 起始位置（以起始位置作为原点）
-text(0, 0, 0, '起始位置');
+% 起始点作为原点
+% % 绘制起始点
+% scatter3(0, 0, 0, 50, 'r', 'filled'); % 起始位置（以起始位置作为原点）
+% text(0, 0, 0, '起始位置');
+% hold('on');
+% 
+% % 绘制终点
+% endE = DPEresultInUTM(end,1) - DPEresultInUTM(1,1);
+% endN = DPEresultInUTM(end,2) - DPEresultInUTM(1,2);
+% endU = DPEresultInUTM(end,3) - DPEresultInUTM(1,3); % 结束位置相对于起始位置的ENU变化
+% scatter3 (endE, endN, endU, 50, 'b', 'filled');
+% text(endE, endN, endU, '结束位置');
+% 
+% % 绘制所有解算点
+% scatter3 (DPEresultInUTM(:,1) - DPEresultInUTM(1,1), ...
+%           DPEresultInUTM(:,2) - DPEresultInUTM(1,2), ... 
+%           DPEresultInUTM(:,3) - DPEresultInUTM(1,3), 20, color, '+'); % 各解算位置相对于起始位置的ENU变化
+% 
+% % 绘制真实位置
+% trueE = truePosInUTM(1) - DPEresultInUTM(1,1);
+% trueN = truePosInUTM(2) - DPEresultInUTM(1,2);
+% trueU = truePosInUTM(3) - DPEresultInUTM(1,3); % 真实位置相对于起始位置的ENU
+% scatter3 (trueE, trueN, trueU, 'r+');
+% text(trueE, trueN, trueU, '真实位置');
+
+% 真实位置作为原点
+% 绘制所有解算点
+scatter3 (DPEresultInUTM(2:end-1,1) - truePosInUTM(1), ...
+          DPEresultInUTM(2:end-1,2) - truePosInUTM(2), ... 
+          DPEresultInUTM(2:end-1,3) - truePosInUTM(3), 30, color(2:end-1,:), '+'); % 各解算位置相对于真实位置的ENU变化
 hold('on');
 
+% 绘制起始点
+beginE = DPEresultInUTM(1,1) - truePosInUTM(1);
+beginN = DPEresultInUTM(1,2) - truePosInUTM(2);
+beginU = DPEresultInUTM(1,3) - truePosInUTM(3); % 起始位置
+scatter3 (beginE, beginN, beginU, 50, 'r', 'filled');
+text(beginE, beginN, beginU, '起始位置');
+
 % 绘制终点
-endE = DPEresultInUTM(end,1) - DPEresultInUTM(1,1);
-endN = DPEresultInUTM(end,2) - DPEresultInUTM(1,2);
-endU = DPEresultInUTM(end,3) - DPEresultInUTM(1,3); % 结束位置相对于起始位置的ENU变化
+endE = DPEresultInUTM(end,1) - truePosInUTM(1);
+endN = DPEresultInUTM(end,2) - truePosInUTM(2);
+endU = DPEresultInUTM(end,3) - truePosInUTM(3); % 结束位置
 scatter3 (endE, endN, endU, 50, 'b', 'filled');
 text(endE, endN, endU, '结束位置');
 
-% 绘制所有解算点
-scatter3 (DPEresultInUTM(:,1) - DPEresultInUTM(1,1), ...
-          DPEresultInUTM(:,2) - DPEresultInUTM(1,2), ... 
-          DPEresultInUTM(:,3) - DPEresultInUTM(1,3), 20, color, '+'); % 各解算位置相对于起始位置的ENU变化
-
 % 绘制真实位置
-trueE = truePosInUTM(1) - DPEresultInUTM(1,1);
-trueN = truePosInUTM(2) - DPEresultInUTM(1,2);
-trueU = truePosInUTM(3) - DPEresultInUTM(1,3); % 真实位置相对于起始位置的ENU
-scatter3 (trueE, trueN, trueU, 'r+');
-text(trueE, trueN, trueU, '真实位置');
+scatter3(0, 0, 0, 'r+'); % 真实位置??
+text(0, 0, 0, '真实位置');
 
 xlabel('X');ylabel('Y');zlabel('Z');
+title('DPE解算结果图')
 hold('off');
 view(0, 90); % 只看俯视图
 axis('equal');
 grid('minor');
+a = axis;
+axis([a(1)-5 a(2)+5 a(3)-5 a(4)+5])
 
 %% 生成水平位置域的概率流形
 % -------------------------------------------------------------------------
@@ -185,7 +214,7 @@ for epoch = 20
     xlabel('X'); ylabel('Y'); zlabel('Corr Score');
     grid('minor'); hold off; axis('tight');
     current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
-    title(['current time:' num2str(current_time) 's']);
+    title(['第' num2str(current_time) 's的流型图']);
     view(-37.5, 30);
     
     % 网格位置验证图
@@ -201,7 +230,7 @@ for epoch = 20
     text(0, 0, '网格原点');
 
     xlabel('X');ylabel('Y');
-    title(['current time:' num2str(current_time) 's']);
+    title(['第' num2str(current_time) 's的网格图']);
     grid('minor');hold('off');axis('tight'); 
 end
 
