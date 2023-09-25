@@ -101,7 +101,7 @@ start = time.time()
 
 printer.header(csvfile)  # 在表格中打印表头(即第一行的各列标题)
 DPE_sdr.counter = 0  # 用于记录DPE的历元序号
-DPE_sdr.corr_interval = DPE_corr_save_interval / DPE_interval
+DPE_sdr.corr_interval = int(DPE_corr_save_interval / DPE_interval)
 DPE_sdr.initGridInfo(counter_max/DPE_sdr.corr_interval)  # 初始化储存DPE相关结果的矩阵
 for mc in range(counter_max):
     DPE_sdr.dp_track(1)  # DPE解算，每次只处理一个历元
