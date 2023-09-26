@@ -18,7 +18,7 @@ switch dataFlag
         dataDir = 'texbat_ds4/';
         truePosInLLA = [30.287528140, -97.735720004, 166.1898]; % 真实位置(纬度(北正南负)经度(东正西负) 高度) TEXBAT
 %         secDir = 'test20913_skip20s_proc40s/';
-        secDir = 'test10921_skip90s_proc40s/'; 
+        secDir = 'test10921_skip120s_proc40s/'; 
     case 3
 %         dataDir = 'cpntbat_cs08/';
         dataDir = 'CPNTBAT_cleanStatic/';
@@ -79,7 +79,8 @@ timeAxis = double(DPE_start_time) + (1:size(data,1))*DPE_interval; % DPE解算结果
 
 %%  坐标误差图
 figure(100);
-h1 = plot(timeAxis, fliplr(DPEresultInUTM-truePosInUTM), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ENU误差
+ax100 = subplot(1,1,1);
+h1 = plot(ax100, timeAxis, fliplr(DPEresultInUTM-truePosInUTM), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ENU误差
 nameArr = {'color'};
 valueArr = {'#5d70ea'; '#e34f26'; '#fbbc05'};
 set(h1, nameArr, valueArr);
@@ -93,7 +94,8 @@ a = axis;
 axis([a(1) a(2) a(3)-1 a(4)+1])
 
 figure(101);
-h2 = plot(timeAxis, fliplr(DPEresultInECEF-truePosInECEF'), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ECEF误差
+ax101 = subplot(1,1,1);
+h2 = plot(ax101, timeAxis, fliplr(DPEresultInECEF-truePosInECEF'), 'LineWidth', 1.5); % DPE解算结果相对于真实位置的ECEF误差
 nameArr = {'color'};
 valueArr = {'#5d70ea'; '#e34f26'; '#fbbc05'};
 set(h2, nameArr, valueArr);
@@ -108,6 +110,7 @@ axis([a(1) a(2) a(3)-1 a(4)+1])
 
 %%  DPE解算结果网格点图
 figure(200);
+ax200 = subplot(1,1,1);
 color = zeros(size(DPEresultInUTM));
 color(:, 2) = linspace(0.3, 1, size(DPEresultInUTM,1))';
 
@@ -138,27 +141,27 @@ color(:, 2) = linspace(0.3, 1, size(DPEresultInUTM,1))';
 
 % 真实位置作为原点
 % 绘制所有解算点
-scatter3 (DPEresultInUTM(2:end-1,1) - truePosInUTM(1), ...
-          DPEresultInUTM(2:end-1,2) - truePosInUTM(2), ... 
-          DPEresultInUTM(2:end-1,3) - truePosInUTM(3), 30, color(2:end-1,:), '+'); % 各解算位置相对于真实位置的ENU变化
+scatter3 (ax200, DPEresultInUTM(2:end-1,1) - truePosInUTM(1), ...
+                 DPEresultInUTM(2:end-1,2) - truePosInUTM(2), ... 
+                 DPEresultInUTM(2:end-1,3) - truePosInUTM(3), 30, color(2:end-1,:), '+'); % 各解算位置相对于真实位置的ENU变化
 hold('on');
 
 % 绘制起始点
 beginE = DPEresultInUTM(1,1) - truePosInUTM(1);
 beginN = DPEresultInUTM(1,2) - truePosInUTM(2);
 beginU = DPEresultInUTM(1,3) - truePosInUTM(3); % 起始位置
-scatter3 (beginE, beginN, beginU, 50, 'r', 'filled');
+scatter3 (ax200, beginE, beginN, beginU, 50, 'r', 'filled');
 text(beginE, beginN, beginU, '起始位置');
 
 % 绘制终点
 endE = DPEresultInUTM(end,1) - truePosInUTM(1);
 endN = DPEresultInUTM(end,2) - truePosInUTM(2);
 endU = DPEresultInUTM(end,3) - truePosInUTM(3); % 结束位置
-scatter3 (endE, endN, endU, 50, 'b', 'filled');
+scatter3 (ax200, endE, endN, endU, 50, 'b', 'filled');
 text(endE, endN, endU, '结束位置');
 
 % 绘制真实位置
-scatter3(0, 0, 0, 'r+'); % 真实位置??
+scatter3(ax200, 0, 0, 0, 'r+'); % 真实位置??
 text(0, 0, 0, '真实位置');
 
 xlabel('X');ylabel('Y');zlabel('Z');
@@ -192,9 +195,15 @@ org_indy = find(dY == 0);
 [DPE_x, DPE_y] = meshgrid(dX, dY); % 求水平坐标面
 DPE_y = flipud(DPE_y);
 
-% for epoch = 1 : numOfEpoch    
-for epoch = 20
-    figure(300); 
+f300 = figure(300); 
+ax300 = subplot(1,1,1); 
+f301 = figure(301);
+ax301 = subplot(1,1,1);
+
+for epoch = 1 : numOfEpoch    
+% for epoch = 20
+    cla(ax300, ax301);
+    
     curr_corr_pos = corr_pos(epoch, :); % 1*390625
     corr_xy_zdt = reshape(curr_corr_pos, [625, 625]); % 625*625
     corr_xy = max(corr_xy_zdt); % 1*625
@@ -203,35 +212,37 @@ for epoch = 20
     curr_corr_xy_2d = curr_corr_xy_2d ./ max_corr; % 归一化
     
     % 绘制当前历元的概率流型图
-    meshc(DPE_x, DPE_y, curr_corr_xy_2d); hold on;
+    meshc(ax300, DPE_x, DPE_y, curr_corr_xy_2d);hold(ax300, 'on');
     
-    scatter3(DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx),  50, 'r', 'filled');
-    text(DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx), '网格最大值');
+    scatter3(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx),  50, 'r', 'filled'); 
+    text(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx), '网格最大值');
     
-    scatter3(dX(org_indx), dY(org_indy), curr_corr_xy_2d(org_indx, org_indy), 50, 'b', 'filled');
-    text(dX(org_indx), dY(org_indy),curr_corr_xy_2d(org_indx, org_indy), '网格原点');
+    scatter3(ax300, dX(org_indx), dY(org_indy), curr_corr_xy_2d(org_indx, org_indy), 50, 'b', 'filled');
+    text(ax300, dX(org_indx), dY(org_indy),curr_corr_xy_2d(org_indx, org_indy), '网格原点');
     
-    xlabel('X'); ylabel('Y'); zlabel('Corr Score');
-    grid('minor'); hold off; axis('tight');
+    xlabel(ax300, 'X'); ylabel(ax300, 'Y'); zlabel(ax300, 'Corr Score');
+    grid(ax300, 'minor'); axis(ax300, 'tight');
     current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
-    title(['第' num2str(current_time) 's的流型图']);
-    view(-37.5, 30);
+    title(ax300, ['第' num2str(current_time) 's的流型图']);
+    view(ax300, -37.5, 30); 
+    hold(ax300, 'off');
     
     % 网格位置验证图
-    figure(400);
-    scatter(DPE_x(:), DPE_y(:), 10, 'p', 'filled');
-    hold('on');
     
-    scatter(DPEresultInENU(epoch,1), ...
+    scatter(ax301, DPE_x(:), DPE_y(:), 10, 'p', 'filled'); hold(ax301, 'on');
+    
+    scatter(ax301, DPEresultInENU(epoch,1), ...
             DPEresultInENU(epoch,2), 50, 'r', 'filled');
-    text(DPEresultInENU(epoch,1), DPEresultInENU(epoch,2), 'DPE解算结果');
+    text(ax301, DPEresultInENU(epoch,1), DPEresultInENU(epoch,2), 'DPE解算结果');
 
-    scatter(0, 0, 50, 'b', 'filled');
-    text(0, 0, '网格原点');
+    scatter(ax301, 0, 0, 50, 'b', 'filled');
+    text(ax301, 0, 0, '网格原点');
 
-    xlabel('X');ylabel('Y');
-    title(['第' num2str(current_time) 's的网格图']);
-    grid('minor');hold('off');axis('tight'); 
+    xlabel(ax301, 'X');ylabel(ax301, 'Y');
+    title(ax301, ['第' num2str(current_time) 's的网格图']);
+    grid(ax301, 'minor'); axis(ax301, 'tight'); hold(ax301, 'off');
+    
+    pause(0.5);
 end
 
 %% save fig
@@ -241,7 +252,7 @@ saveas(figure(100), [figDir 'ENU']);
 saveas(figure(101), [figDir 'ECEF']);
 saveas(figure(200), [figDir 'DPE_result']);
 saveas(figure(300), [figDir 'manifold']);
-saveas(figure(400), [figDir 'curr_epoch_grid']);
+saveas(figure(301), [figDir 'curr_epoch_grid']);
 
 
 
