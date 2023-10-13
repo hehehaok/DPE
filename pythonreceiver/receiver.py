@@ -1034,7 +1034,8 @@ class NavigationGuesses():
             gen(self)
         else:
             #self.generate_evenly_spaced()
-            self.generate_spread_grid()
+            # self.generate_spread_grid()
+            self.generate_exstreme_grid()
 
     # predict the state X for the next timestamp
     def generate_evenly_spaced(self):
@@ -1099,6 +1100,43 @@ class NavigationGuesses():
 
         self.N = len(self.dT)  # 390625
         self.Ndot = len(self.dTdot)  # 390625
+
+        return
+
+    def generate_exstreme_grid(self):
+        # dtmp = np.array([-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22])
+        a = np.arange(-100, 101, 10)
+        pos_b = np.arange(125, 501, 25)
+        neg_b = -pos_b[-1::-1]
+        pos_c = np.arange(550, 1001, 50)
+        neg_c = -pos_c[-1::-1]
+        dtmp = np.hstack((neg_c, neg_b, a, pos_b, pos_c))  # 1*grid_num
+        grid_num = len(dtmp)  # grid_num
+
+        dZ = np.kron(dtmp, np.ones(grid_num))  # 1*grid_num**2
+        dY = np.kron(dZ, np.ones(grid_num))  # 1*grid_num**3
+        dX = np.kron(dY, np.ones(grid_num))  # 1*grid_num**4
+        dY = np.tile(dY, grid_num)  # 1*grid_num**4
+        dZ = np.tile(dZ, grid_num * grid_num)  # 1*grid_num**4
+        self.dX = np.mat(np.vstack((dX, dY, dZ)))  # 3*grid_num**4
+
+        dT = dtmp * 0.2  # # 1*grid_num
+        self.dT = np.tile(dT, grid_num * grid_num * grid_num)  # 1*grid_num**4
+
+        dtmp = np.arange(-36, 37)
+
+        dZdot = np.kron(dtmp * 3 / 10.0, np.ones(grid_num))
+        dYdot = np.kron(dZdot, np.ones(grid_num))
+        dXdot = np.kron(dYdot, np.ones(grid_num))
+        dYdot = np.tile(dYdot, grid_num)
+        dZdot = np.tile(dZdot, grid_num * grid_num)
+        self.dXdot = np.mat(np.vstack((dXdot, dYdot, dZdot)))
+
+        dTdot = dtmp * 0.1
+        self.dTdot = np.tile(dTdot, grid_num * grid_num * grid_num)
+
+        self.N = len(self.dT)
+        self.Ndot = len(self.dTdot)
 
         return
 

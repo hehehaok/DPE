@@ -495,12 +495,12 @@ class Correlator():
         """
 
 
-        while np.max(np.abs(carr_fft)) < np.max(np.abs(code_corr))/2:
-            print('WARNING')
-
-            max_code_idx = (np.abs(code_corr).argmax()-rawfile.S/(2.0)).astype(np.int32)
-            baseband = (raw-np.mean(raw)) * np.roll(r,max_code_idx) * doppler_wipeoff_signal
-            carr_fft = np.fft.fftshift(np.fft.fft(baseband, rawfile.carr_fftpts))
+        # while np.max(np.abs(carr_fft)) < np.max(np.abs(code_corr))/2:
+        #     print('WARNING')
+        #
+        #     max_code_idx = (np.abs(code_corr).argmax()-rawfile.S/(2.0)).astype(np.int32)
+        #     baseband = (raw-np.mean(raw)) * np.roll(r,max_code_idx) * doppler_wipeoff_signal
+        #     carr_fft = np.fft.fftshift(np.fft.fft(baseband, rawfile.carr_fftpts))
 
 
         return code_corr, carr_fft, cp_compl

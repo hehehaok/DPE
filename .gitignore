@@ -1,0 +1,13 @@
+.idea/
+post-simulator/
+pre-simulator/
+saveFig/
+*.pyc
+*.mat
+*.csv
+test.py
+test.m
+selectDir.m
+setting3.py
+setting4.py
+*.swp

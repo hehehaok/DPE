@@ -1,31 +1,4 @@
-clear;
-close all;
-fclose('all');
-clc;
-
-%% 数据选择
-dataFlag = 2; % 0-芬兰 1-OAKBAT 2-TEXBAT 3-CPNTBAT
-switch dataFlag
-    case 0
-        dataDir = 'finland_cleanStatic/';
-        truePosInLLA = [60.161086788889, 24.545448080556, 54.1640000026673]; % 真实位置(纬度(北正南负)经度(东正西负) 高度) 芬兰
-        secDir = 'test0907_1_skip0s_proc40s/';
-    case 1
-        dataDir = 'oak_cleanStatic/';
-        truePosInLLA = [35.930544444, -84.310652778, 248.6000]; % 真实位置(纬度(北正南负) 经度(东正西负) 高度) OAKBAT
-        secDir = 'test10912_skip50s_proc40s/';
-    case 2
-        dataDir = 'texbat_ds4/';
-        truePosInLLA = [30.287528140, -97.735720004, 166.1898]; % 真实位置(纬度(北正南负)经度(东正西负) 高度) TEXBAT
-%         secDir = 'test20913_skip20s_proc40s/';
-        secDir = 'test10921_skip120s_proc40s/'; 
-    case 3
-%         dataDir = 'cpntbat_cs08/';
-        dataDir = 'CPNTBAT_cleanStatic/';
-        truePosInLLA = [22.803448, 113.953065, 50.0000]; % 真实位置(纬度(北正南负) 经度(东正西负) 高度) CPNTBAT
-        secDir = '0914test1_skip20s_proc40s/';
-    otherwise
-end
+function [] = localizationResult(dataDir, secDir, truePosInLLA)
 
 %% 读取DPE定位结果文件
 predir   = ['./pre-simulator/' dataDir];
@@ -75,7 +48,7 @@ for ii = 1:size(data, 1)
     % 因此这里的ENU是本次的DPE解算结果相对于前一次的DPE解算结果的ENU坐标
 end
 DPEresultInECEF = data(:, [4 5 6]); % DPE解算位置 ECEF 
-timeAxis = double(DPE_start_time) + (1:size(data,1))*DPE_interval; % DPE解算结果时间坐标轴
+timeAxis = double(DPE_start_time) + (1:size(data,1))*double(DPE_interval); % DPE解算结果时间坐标轴
 
 %%  坐标误差图
 figure(100);
@@ -184,12 +157,21 @@ axis([a(1)-5 a(2)+5 a(3)-5 a(4)+5])
 % 目前仅就X/Y两个方向画图，因此需要对Z和dT取所有取值中的最大值
 % 而corr_pos对应各向25个网格共25^4=390625个网格点
 % -------------------------------------------------------------------------
-corr_shape = size(corr_pos); % 500*390625
+corr_shape = size(corr_pos); % numOfEpoch*numOfGrid^4
 numOfEpoch = corr_shape(1);
 
 % 网格
-dX = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
-dY = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
+a = -100 : 10 : 101;
+pos_b = 125 : 25 : 501;
+neg_b = -pos_b(end:-1:1);
+pos_c = 550 : 50 : 1001;
+neg_c = -pos_c(end:-1:1);
+dtmp = [neg_c, neg_b, a, pos_b, pos_c];
+% dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
+
+numOfGrid = length(dtmp);
+dX = dtmp;
+dY = dtmp;
 org_indx = find(dX == 0);
 org_indy = find(dY == 0);
 [DPE_x, DPE_y] = meshgrid(dX, dY); % 求水平坐标面
@@ -201,14 +183,14 @@ f301 = figure(301);
 ax301 = subplot(1,1,1);
 
 for epoch = 1 : numOfEpoch    
-% for epoch = 20
+% for epoch = 1
     cla(ax300, ax301);
     
     curr_corr_pos = corr_pos(epoch, :); % 1*390625
-    corr_xy_zdt = reshape(curr_corr_pos, [625, 625]); % 625*625
+    corr_xy_zdt = reshape(curr_corr_pos, [numOfGrid^2, numOfGrid^2]); % 625*625
     corr_xy = max(corr_xy_zdt); % 1*625
-    curr_corr_xy_2d = flipud(reshape(corr_xy, [25, 25])); % 25*25
-    [max_corr, max_idx] = max(curr_corr_xy_2d,[],'all','linear');
+    curr_corr_xy_2d = flipud(reshape(corr_xy, [numOfGrid, numOfGrid])); % 25*25
+    [max_corr, max_idx] = max(curr_corr_xy_2d,[],'all','linear'); 
     curr_corr_xy_2d = curr_corr_xy_2d ./ max_corr; % 归一化
     
     % 绘制当前历元的概率流型图
@@ -242,7 +224,7 @@ for epoch = 1 : numOfEpoch
     title(ax301, ['第' num2str(current_time) 's的网格图']);
     grid(ax301, 'minor'); axis(ax301, 'tight'); hold(ax301, 'off');
     
-    pause(0.5);
+    pause(1);
 end
 
 %% save fig
@@ -254,6 +236,4 @@ saveas(figure(200), [figDir 'DPE_result']);
 saveas(figure(300), [figDir 'manifold']);
 saveas(figure(301), [figDir 'curr_epoch_grid']);
 
-
-
-
+end
