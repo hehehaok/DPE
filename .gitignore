@@ -5,8 +5,11 @@ saveFig/
 *.pyc
 *.mat
 *.csv
+*.h5
 test.py
 test.m
+localizationResult.py
+dpeResultPlot.m
 selectDir.m
 setting3.py
 setting4.py

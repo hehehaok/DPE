@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.io as sio
 import csv
+import h5py
 
 _RECEIVER_ATTRIBUTE_NAMES    = ['_mcount', 'mcount_max']
 _RAWFILE_ATTRIBUTE_NAMES     = ['T', 'T_big']
@@ -834,17 +835,18 @@ class Receiver():
             save_dict['rawfile_'+name] = getattr(self.rawfile,name)
 
         save_dict['receiver_channels'] = sorted(self.channels.keys())
-        try:
-            save_dict['corr_pos'] = self.corr_pos  # 将DPE解算的score进行保存
-            save_dict['corr_vel'] = self.corr_vel
-        except:
-            print('Receiver instance has no attribute \'corr_pos\' and \'corr_vel\'')
 
         if not os.path.exists(os.path.join(dirname,subdir)):
             os.makedirs(os.path.join(dirname,subdir))
 
         sio.savemat(os.path.join(dirname,subdir,'receiver.mat'),save_dict)
 
+        if hasattr(self, "corr_pos"):
+            with h5py.File(os.path.join(dirname, subdir, 'score.h5'), 'w') as f:
+                f.create_dataset('corr_pos', data=self.corr_pos)
+                f.create_dataset('corr_vel', data=self.corr_vel)
+        else:
+            print('Receiver instance has no attribute \'corr_pos\' and \'corr_vel\'')
 
         for prn in self.channels:
             self.channels[prn].save_measurement_logs(os.path.join(dirname,subdir,'channel_%d.mat'%(prn)), os.path.join(dirname,subdir,'channel_%d.csv'%(prn)))
@@ -1034,8 +1036,8 @@ class NavigationGuesses():
             gen(self)
         else:
             #self.generate_evenly_spaced()
-            # self.generate_spread_grid()
-            self.generate_exstreme_grid()
+            self.generate_spread_grid()
+            # self.generate_exstreme_grid()
 
     # predict the state X for the next timestamp
     def generate_evenly_spaced(self):

@@ -6,13 +6,14 @@ postdir  = ['./post-simulator/' dataDir];
 
 % 导入位置结果表格
 csvFile = 'usrp.csv';
-csvDir = [postdir secDir csvFile];
+csvDir  = [postdir secDir csvFile];
 csvData = importdata(csvDir);
 
 % 导入网格相关结果
-receiveFile = 'end-of-dp/receiver.mat';
-rxDir = [postdir secDir receiveFile];
-load(rxDir);
+receiveFile = 'end-of-dp/score.h5';
+scoreDir = [postdir secDir receiveFile];
+corr_pos = h5read(scoreDir,'/corr_pos');
+corr_pos = corr_pos';
 
 % 导入运行时间相关参数
 dpeRunTimeFile = 'dpe_runtime.mat';
@@ -161,13 +162,13 @@ corr_shape = size(corr_pos); % numOfEpoch*numOfGrid^4
 numOfEpoch = corr_shape(1);
 
 % 网格
-a = -100 : 10 : 101;
-pos_b = 125 : 25 : 501;
-neg_b = -pos_b(end:-1:1);
-pos_c = 550 : 50 : 1001;
-neg_c = -pos_c(end:-1:1);
-dtmp = [neg_c, neg_b, a, pos_b, pos_c];
-% dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
+% a = -100 : 10 : 101;
+% pos_b = 125 : 25 : 501;
+% neg_b = -pos_b(end:-1:1);
+% pos_c = 550 : 50 : 1001;
+% neg_c = -pos_c(end:-1:1);
+% dtmp = [neg_c, neg_b, a, pos_b, pos_c];
+dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
 
 numOfGrid = length(dtmp);
 dX = dtmp;

@@ -7,7 +7,7 @@ import scipy.io as sio
 refname    = 'finland_cleanStatic'  # Simulated
 filename = 'cleanStatic_gps_finland.dat'
 datname    = '2023'
-descriptor = 'test1012'
+descriptor = 'test1014'
 fs = 26e6
 fi = 6.39e6
 datatype = np.dtype([('i', np.int8)])
@@ -24,11 +24,11 @@ DPE_start_time = 10
 DPE_lead_time = DPE_start_time - start_time  # must make 3<=DPE_lead_time<=proc_time
 DPE_run_time = 1
 DPE_interval = 0.02  # 进行DPE的间隔
-DPE_corr_save_interval = 0.2  # 保存DPE流形结果图的间隔
+DPE_corr_save_interval = 0.02  # 保存DPE流形结果图的间隔
 
 acq_only      = False
-load_acq = True
-load_trk = True
+load_acq = False
+load_trk = False
 # prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
 prn_list = [13, 15, 17, 24, 28] # Simulated
 # prn_list = [15] # Simulated
