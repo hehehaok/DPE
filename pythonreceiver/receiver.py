@@ -119,8 +119,6 @@ class Receiver():
         # Debug -- remove the comment later
         #self.dp_measurement_update_channels()
 
-        if navguess:
-            self.navguess = NavigationGuesses()  # 生成DPE网格
 
 
     def init_handoff(self, rxTime0=None, rxPos0=None, navguess = True, pOut=False):
@@ -225,7 +223,13 @@ class Receiver():
             self._mcount = self._mcount + 1  # 更新当前的历元序号
 
             #e = self.dp_measurement_estimation()
-            e = self.dp_measurement_estimation_unfolded()
+            if self.dpe_plan == 'GRID':
+                e = self.dp_measurement_estimation_unfolded()
+            elif self.dpe_plan == 'ARS':
+                e = self.dp_measurement_estimation_ARS()
+            else:
+                print('wrong dpe plan!!')
+                return
             # DPE求解；寻找可能性最大的网格并返回score最大的网格对应状态向量与之前估算的状态向量的残差
             self.dp_measurement_update_state(e)  # 利用该残差进行EKF滤波
             self.dp_measurement_update_channels()  # 更新载波频率和码频率
@@ -416,7 +420,7 @@ class Receiver():
         if counter % self.corr_interval == 0:
             idx = counter / self.corr_interval
             self.corr_pos[idx, :] = bc_pos_corr
-            self.corr_vel[idx, :] = bc_vel_fft
+            # self.corr_vel[idx, :] = bc_vel_fft
         # 储存score用于画图
 
         mean_pos = gX_ECEF_fixed_vel[0:4, np.argmax(bc_pos_corr)]  # 4*1
@@ -427,7 +431,94 @@ class Receiver():
         # 作为残差用于后续的扩展卡尔曼滤波
         return np.vstack((mean_pos,mean_vel))-X_ECEF
 
+    def dp_measurement_estimation_ARS(self,L_power=1):
 
+        mc       = self._mcount
+        prn_list = sorted(self.channels.keys())
+        counter  = self.counter
+
+        X_ECEF   = self.ekf.X_ECEF
+        rxTime_a = self.rxTime_a
+        rxTime   = self.rxTime
+
+        X_ECI = utils.ECEF_to_ECI(X_ECEF, t_gps=rxTime_a, t_c=rxTime_a)
+        sats_ECI, transmitTime = naveng.get_satellite_positions(self, t_c=rxTime_a)
+
+        dmin = self.dmin
+        dmax = self.dmax
+        dmint = self.dmint
+        dmaxt = self.dmaxt
+        cf = self.cf
+        N_Iter = self.N_Iter
+
+        deltax = np.zeros((3, N_Iter))  # 3*N 表示的是当前迭代周期下xyz可能的最大范围
+        deltat = np.zeros((1, N_Iter))  # 1*N
+        pos_ECEF = np.zeros((8, N_Iter))  # 8*N
+        costScore = np.zeros((1, N_Iter))  # 1*N
+        deltax_in_iteration = np.zeros((4, N_Iter))  # 表示的是当前迭代周期下xyz在指定范围内的平均分布随机值
+
+        deltax[:, 0:1] = np.ones((3, 1))*dmax  # (3,1)
+        deltat[:, 0:1] = np.ones((1, 1))*dmaxt  # (1,1)
+        pos_ECEF[:, 0:1] = X_ECEF[:, 0:1]  # (8,1)
+        code_corr_idx = (np.floor(self.rawfile.S / 2.0)).astype(np.int32)
+        for prn in prn_list:
+            costScore[0, 0] += np.abs(self.channels[prn].code_corr[code_corr_idx]) ** L_power
+
+        gX_ECEF_fixed_vel = np.matrix(X_ECEF)  # (8,1)
+
+        for n in range(N_Iter-1):
+            deltax_n = np.random.rand(3, 1)*2*deltax[:, n:n+1] - deltax[:, n:n+1]  # (3,1)
+            deltat_n = np.random.rand(1, 1)*2*deltat[:, n:n+1] - deltat[:, n:n+1]  # (1,1)
+            deltax_in_iteration[:, n:n+1] = np.vstack([deltax_n, deltat_n])  # (4,1)
+
+            X_ENU_trash, R = utils.ECEF_to_ENU(refState=pos_ECEF[0:3, n:n+1], curState=pos_ECEF[0:3, n:n+1])
+            # 地心地固 -> 东北天 这一步主要是为了得到坐标变换矩阵R
+            gX_ECEF_fixed_vel[0:3, 0:1] = utils.ENU_to_ECEF(refState=pos_ECEF[0:3, n:n+1], diffState=deltax_n, R_ECEF2ENU=R)
+            # 东北天 -> 地心地固 得到各个网格点XYZ的地心地固坐标系
+            gX_ECEF_fixed_vel[3, 0] = pos_ECEF[3, n] + deltat_n[0, 0]  # 得到各网格点钟差 1
+            gX_ECI_fixed_vel = utils.ECEF_to_ECI(gX_ECEF_fixed_vel, t_gps=rxTime_a, t_c=rxTime_a)
+
+            for prn_idx, prn in enumerate(prn_list):
+                bc_range = np.linalg.norm(sats_ECI[0:3, prn_idx] - gX_ECI_fixed_vel[0:3, :], axis=0)  # (1,)
+                bc_pseudorange = bc_range + C * (
+                            np.array(gX_ECI_fixed_vel)[3, :] / C - sats_ECI[3, prn_idx])  # (1,)
+                bc_transmitTime = rxTime - bc_pseudorange / C  # (1,)
+                bc_codeFracDiff = bc_transmitTime \
+                                  - self.channels[prn].ephemerides.timestamp['TOW'] \
+                                  - T_CA * (self.channels[prn].cp[mc] - self.channels[prn].ephemerides.timestamp['cp'])  # (1,)
+                bc_rc = bc_codeFracDiff * F_CA  # (1,)
+                # 最终对应论文P13 list2.2的第1个式子
+
+                bc_rc0 = bc_rc - self.channels[prn].rc[mc]  # (1,)
+
+                bc_rc0_idx = (self.rawfile.fs / self.channels[prn].fc[mc]) * (
+                    -bc_rc0) + self.rawfile.S / 2.0  # (1,)
+                bc_rc0_cidx = np.floor(bc_rc0_idx + 1).astype(np.int32)  # (1,)
+                bc_rc0_fidx = np.floor(bc_rc0_idx).astype(np.int32)  # (1,)
+                bc_rc0_corr = (self.channels[prn].code_corr[bc_rc0_cidx] * (bc_rc0_idx - bc_rc0_fidx)
+                               + self.channels[prn].code_corr[bc_rc0_fidx] * (bc_rc0_cidx - bc_rc0_idx))  # (1,)
+                costScore[0, n+1] = costScore[0, n+1] + np.abs(bc_rc0_corr) ** L_power  # 1
+
+            if costScore[0, n+1] > costScore[0, n]:  # 1
+                pos_ECEF[:, n+1:n+2] = gX_ECEF_fixed_vel  # (8,1)
+                deltax[:, n+1:n+2] = np.ones((3, 1))*dmax  # (3,1)
+                deltat[:, n+1:n+2] = np.ones((1, 1))*dmaxt  # (1,1)
+            else:
+                pos_ECEF[:, n+1] = pos_ECEF[:, n]  # (8,)
+                deltax[:, n+1] = deltax[:, n] / cf  # (3,)
+                deltat[:, n+1] = deltat[:, n] / cf  # (1,)
+            for idx, delta in enumerate(deltax[:, n+1]):
+                deltax[idx, n+1] = dmax if delta < dmin else delta
+            if deltat[0, n+1] < dmint:
+                deltat[0, n+1] = dmaxt
+
+        if counter % self.corr_interval == 0:
+            idx = counter / self.corr_interval
+            self.costScore[idx] = costScore  # 1*N
+            self.deltaxt[idx] = np.vstack([deltax, deltat])  # 4*N
+            self.delta_in_iteration[idx] = deltax_in_iteration  # 4*N
+        # 作为残差用于后续的扩展卡尔曼滤波
+        return pos_ECEF[:, (N_Iter-1):N_Iter] - X_ECEF
 
 
     def dp_measurement_update_state(self, e):
@@ -841,12 +932,22 @@ class Receiver():
 
         sio.savemat(os.path.join(dirname,subdir,'receiver.mat'),save_dict)
 
-        if hasattr(self, "corr_pos"):
-            with h5py.File(os.path.join(dirname, subdir, 'score.h5'), 'w') as f:
-                f.create_dataset('corr_pos', data=self.corr_pos)
-                f.create_dataset('corr_vel', data=self.corr_vel)
-        else:
-            print('Receiver instance has no attribute \'corr_pos\' and \'corr_vel\'')
+        if hasattr(self, "dpe_plan"):
+            with h5py.File(os.path.join(dirname, subdir, 'costFunction.h5'), 'w') as f:
+                f.create_dataset('dpe_plan', data=self.dpe_plan)
+                if self.dpe_plan == 'GRID':
+                    f.create_dataset('GRID/corr_pos', data=self.corr_pos)
+                    # f.create_dataset('GRID/corr_vel', data=self.corr_vel)
+                elif self.dpe_plan == 'ARS':
+                    f.create_dataset('ARS/costScore', data=self.costScore)
+                    f.create_dataset('ARS/deltaxt', data=self.deltaxt)
+                    f.create_dataset('ARS/delta_in_iteration', data=self.delta_in_iteration)
+                    f.create_dataset('ARS/dmax', data=self.dmax)
+                    f.create_dataset('ARS/dmin', data=self.dmin)
+                    f.create_dataset('ARS/dmaxt', data=self.dmaxt)
+                    f.create_dataset('ARS/dmint', data=self.dmint)
+                    f.create_dataset('ARS/cf', data=self.cf)
+                    f.create_dataset('ARS/N_Iter', data=self.N_Iter)
 
         for prn in self.channels:
             self.channels[prn].save_measurement_logs(os.path.join(dirname,subdir,'channel_%d.mat'%(prn)), os.path.join(dirname,subdir,'channel_%d.csv'%(prn)))
@@ -1025,9 +1126,30 @@ class Receiver():
     def dp_get_GDOP(self,prn_list = None):
         return self.get_GDOP(X_ECEF = self.ekf.X_ECEF,rxTime_a = self.rxTime_a,prn_list = prn_list)
 
-    def initGridInfo(self, mcount_max, N=390625):
-        self.corr_pos = np.ones((mcount_max, N))*np.nan
-        self.corr_vel = np.ones((mcount_max, N))*np.nan
+    def initPlanInfo(self, mcount_max, corr_interval, dpe_plan, grid_param, ars_param):
+        self.counter = 0  # 用于记录DPE的历元序号
+        self.corr_interval = corr_interval
+        self.dpe_plan = dpe_plan
+        save_count_max = int(mcount_max / corr_interval)
+
+        if dpe_plan == 'GRID':
+            N = grid_param['N']
+            # grid_type = grid_param['grid_type']
+            self.navguess = NavigationGuesses()  # 生成DPE网格
+            self.corr_pos = np.ones((save_count_max, N))*np.nan
+            # self.corr_vel = np.ones((save_count_max, N))*np.nan
+        elif dpe_plan == 'ARS':
+            self.dmax = ars_param['dmax']
+            self.dmin = ars_param['dmin']
+            self.dmaxt = ars_param['dmaxt']
+            self.dmint = ars_param['dmint']
+            self.cf = ars_param['cf']
+            self.N_Iter = ars_param['N_Iter']
+            self.costScore = np.ones((save_count_max, self.N_Iter))*np.nan
+            self.deltaxt = np.ones((save_count_max, 4, self.N_Iter)) * np.nan
+            self.delta_in_iteration = np.ones((save_count_max, 4, self.N_Iter)) * np.nan
+        else:
+            print('wrong dpe_plan!!')
 
 class NavigationGuesses():
 

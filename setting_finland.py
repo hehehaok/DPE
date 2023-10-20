@@ -7,7 +7,7 @@ import scipy.io as sio
 refname    = 'finland_cleanStatic'  # Simulated
 filename = 'cleanStatic_gps_finland.dat'
 datname    = '2023'
-descriptor = 'test1014'
+descriptor = 'test1020ARS'
 fs = 26e6
 fi = 6.39e6
 datatype = np.dtype([('i', np.int8)])
@@ -26,11 +26,21 @@ DPE_run_time = 1
 DPE_interval = 0.02  # 进行DPE的间隔
 DPE_corr_save_interval = 0.02  # 保存DPE流形结果图的间隔
 
+dpe_plan = 'ARS'  # 'GRID'-网格法  'ARS' - accelerated random search
+# ************* GRID方法参数 *****************
+grid_param = {'N': 25**4}
+# ************* GRID方法参数 *****************
+# ************* ARS方法参数 *****************
+ars_param = {'dmax': 10, 'dmin': 1,
+             'dmaxt': 5, 'dmint': 0.5,
+             'cf': 2, 'N_Iter': 1000}
+# ************* ARS方法参数 *****************
+
 acq_only      = False
-load_acq = False
-load_trk = False
-# prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
-prn_list = [13, 15, 17, 24, 28] # Simulated
+load_acq = True
+load_trk = True
+prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
+# prn_list = [13, 15, 17, 24, 28] # Simulated
 # prn_list = [15] # Simulated
 
 datpath  = 'D:/academic/DPEdata/'

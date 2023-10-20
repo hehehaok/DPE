@@ -10,10 +10,18 @@ csvDir  = [postdir secDir csvFile];
 csvData = importdata(csvDir);
 
 % 导入网格相关结果
-receiveFile = 'end-of-dp/score.h5';
+receiveFile = 'end-of-dp/costFunction.h5';
 scoreDir = [postdir secDir receiveFile];
-corr_pos = h5read(scoreDir,'/corr_pos');
-corr_pos = corr_pos';
+dpe_plan = h5read(scoreDir,'/dpe_plan');
+dpe_plan = dpe_plan{1};
+if strcmp(dpe_plan, 'GRID')
+    corr_pos = h5read(scoreDir,'/GRID/corr_pos')';
+elseif strcmp(dpe_plan, 'ARS')
+    cost_score = h5read(scoreDir,'/ARS/costScore')';
+    N_Iter = h5read(scoreDir,'/ARS/N_Iter')';
+    deltaxt = permute(h5read(scoreDir,'/ARS/deltaxt'), [3 2 1]);
+    delta_in_iteration = permute(h5read(scoreDir,'/ARS/delta_in_iteration'), [3 2 1]);
+end
 
 % 导入运行时间相关参数
 dpeRunTimeFile = 'dpe_runtime.mat';
@@ -114,10 +122,10 @@ color(:, 2) = linspace(0.3, 1, size(DPEresultInUTM,1))';
 % text(trueE, trueN, trueU, '真实位置');
 
 % 真实位置作为原点
-% 绘制所有解算点
-scatter3 (ax200, DPEresultInUTM(2:end-1,1) - truePosInUTM(1), ...
-                 DPEresultInUTM(2:end-1,2) - truePosInUTM(2), ... 
-                 DPEresultInUTM(2:end-1,3) - truePosInUTM(3), 30, color(2:end-1,:), '+'); % 各解算位置相对于真实位置的ENU变化
+
+% 绘制真实位置
+scatter3(ax200, 0, 0, 0, 'r+'); % 真实位置
+text(0, 0, 0, '真实位置');
 hold('on');
 
 % 绘制起始点
@@ -127,16 +135,18 @@ beginU = DPEresultInUTM(1,3) - truePosInUTM(3); % 起始位置
 scatter3 (ax200, beginE, beginN, beginU, 50, 'r', 'filled');
 text(beginE, beginN, beginU, '起始位置');
 
+% 绘制所有解算点
+scatter3 (ax200, DPEresultInUTM(2:end-1,1) - truePosInUTM(1), ...
+                 DPEresultInUTM(2:end-1,2) - truePosInUTM(2), ... 
+                 DPEresultInUTM(2:end-1,3) - truePosInUTM(3), 30, color(2:end-1,:), '+'); % 各解算位置相对于真实位置的ENU变化
+
+
 % 绘制终点
 endE = DPEresultInUTM(end,1) - truePosInUTM(1);
 endN = DPEresultInUTM(end,2) - truePosInUTM(2);
 endU = DPEresultInUTM(end,3) - truePosInUTM(3); % 结束位置
 scatter3 (ax200, endE, endN, endU, 50, 'b', 'filled');
 text(endE, endN, endU, '结束位置');
-
-% 绘制真实位置
-scatter3(ax200, 0, 0, 0, 'r+'); % 真实位置??
-text(0, 0, 0, '真实位置');
 
 xlabel('X');ylabel('Y');zlabel('Z');
 title('DPE解算结果图')
@@ -147,94 +157,110 @@ grid('minor');
 a = axis;
 axis([a(1)-5 a(2)+5 a(3)-5 a(4)+5])
 
-%% 生成水平位置域的概率流形
-% -------------------------------------------------------------------------
-% corr_pos网格点分布规律介绍：
-% 假设X/Y/Z/dT各向两个点，分别为0和1，则共有2^4=16个值，分布如下
-% X   |       0               1       |       0               1       |
-% Y   |   0       1   |   0       1   |   0       1   |   0       1   |
-% Z   | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 
-% dT  |0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|    
-% 目前仅就X/Y两个方向画图，因此需要对Z和dT取所有取值中的最大值
-% 而corr_pos对应各向25个网格共25^4=390625个网格点
-% -------------------------------------------------------------------------
-corr_shape = size(corr_pos); % numOfEpoch*numOfGrid^4
-numOfEpoch = corr_shape(1);
+%% 
+if strcmp(dpe_plan, 'GRID')
+    %% 生成水平位置域的概率流形
+    % -------------------------------------------------------------------------
+    % corr_pos网格点分布规律介绍：
+    % 假设X/Y/Z/dT各向两个点，分别为0和1，则共有2^4=16个值，分布如下
+    % X   |       0               1       |       0               1       |
+    % Y   |   0       1   |   0       1   |   0       1   |   0       1   |
+    % Z   | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 0   1 | 
+    % dT  |0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|0 1|    
+    % 目前仅就X/Y两个方向画图，因此需要对Z和dT取所有取值中的最大值
+    % 而corr_pos对应各向25个网格共25^4=390625个网格点
+    % -------------------------------------------------------------------------
+    corr_shape = size(corr_pos); % numOfEpoch*numOfGrid^4
+    numOfEpoch = corr_shape(1);
 
-% 网格
-% a = -100 : 10 : 101;
-% pos_b = 125 : 25 : 501;
-% neg_b = -pos_b(end:-1:1);
-% pos_c = 550 : 50 : 1001;
-% neg_c = -pos_c(end:-1:1);
-% dtmp = [neg_c, neg_b, a, pos_b, pos_c];
-dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
+    % 网格
+%     a = -100 : 10 : 101;
+%     pos_b = 125 : 25 : 501;
+%     neg_b = -pos_b(end:-1:1);
+%     pos_c = 550 : 50 : 1001;
+%     neg_c = -pos_c(end:-1:1);
+%     dtmp = [neg_c, neg_b, a, pos_b, pos_c];
+    dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
 
-numOfGrid = length(dtmp);
-dX = dtmp;
-dY = dtmp;
-org_indx = find(dX == 0);
-org_indy = find(dY == 0);
-[DPE_x, DPE_y] = meshgrid(dX, dY); % 求水平坐标面
-DPE_y = flipud(DPE_y);
+    numOfGrid = length(dtmp);
+    dX = dtmp;
+    dY = dtmp;
+    org_indx = find(dX == 0);
+    org_indy = find(dY == 0);
+    [DPE_x, DPE_y] = meshgrid(dX, dY); % 求水平坐标面
+    DPE_y = flipud(DPE_y);
 
-f300 = figure(300); 
-ax300 = subplot(1,1,1); 
-f301 = figure(301);
-ax301 = subplot(1,1,1);
+    f300 = figure(300); 
+    ax300 = subplot(1,1,1); 
+    f301 = figure(301);
+    ax301 = subplot(1,1,1);
 
-for epoch = 1 : numOfEpoch    
-% for epoch = 1
-    cla(ax300, ax301);
-    
-    curr_corr_pos = corr_pos(epoch, :); % 1*390625
-    corr_xy_zdt = reshape(curr_corr_pos, [numOfGrid^2, numOfGrid^2]); % 625*625
-    corr_xy = max(corr_xy_zdt); % 1*625
-    curr_corr_xy_2d = flipud(reshape(corr_xy, [numOfGrid, numOfGrid])); % 25*25
-    [max_corr, max_idx] = max(curr_corr_xy_2d,[],'all','linear'); 
-    curr_corr_xy_2d = curr_corr_xy_2d ./ max_corr; % 归一化
-    
-    % 绘制当前历元的概率流型图
-    meshc(ax300, DPE_x, DPE_y, curr_corr_xy_2d);hold(ax300, 'on');
-    
-    scatter3(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx),  50, 'r', 'filled'); 
-    text(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx), '网格最大值');
-    
-    scatter3(ax300, dX(org_indx), dY(org_indy), curr_corr_xy_2d(org_indx, org_indy), 50, 'b', 'filled');
-    text(ax300, dX(org_indx), dY(org_indy),curr_corr_xy_2d(org_indx, org_indy), '网格原点');
-    
-    xlabel(ax300, 'X'); ylabel(ax300, 'Y'); zlabel(ax300, 'Corr Score');
-    grid(ax300, 'minor'); axis(ax300, 'tight');
-    current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
-    title(ax300, ['第' num2str(current_time) 's的流型图']);
-    view(ax300, -37.5, 30); 
-    hold(ax300, 'off');
-    
-    % 网格位置验证图
-    
-    scatter(ax301, DPE_x(:), DPE_y(:), 10, 'p', 'filled'); hold(ax301, 'on');
-    
-    scatter(ax301, DPEresultInENU(epoch,1), ...
-            DPEresultInENU(epoch,2), 50, 'r', 'filled');
-    text(ax301, DPEresultInENU(epoch,1), DPEresultInENU(epoch,2), 'DPE解算结果');
+%     for epoch = 1 : numOfEpoch    
+    for epoch = 2
+        cla(ax300, ax301);
 
-    scatter(ax301, 0, 0, 50, 'b', 'filled');
-    text(ax301, 0, 0, '网格原点');
+        curr_corr_pos = corr_pos(epoch, :); % 1*390625
+        corr_xy_zdt = reshape(curr_corr_pos, [numOfGrid^2, numOfGrid^2]); % 625*625
+        corr_xy = max(corr_xy_zdt); % 1*625
+        curr_corr_xy_2d = flipud(reshape(corr_xy, [numOfGrid, numOfGrid])); % 25*25
+        [max_corr, max_idx] = max(curr_corr_xy_2d,[],'all','linear'); 
+        curr_corr_xy_2d = curr_corr_xy_2d ./ max_corr; % 归一化
 
-    xlabel(ax301, 'X');ylabel(ax301, 'Y');
-    title(ax301, ['第' num2str(current_time) 's的网格图']);
-    grid(ax301, 'minor'); axis(ax301, 'tight'); hold(ax301, 'off');
-    
-    pause(1);
+        % 绘制当前历元的概率流型图
+        meshc(ax300, DPE_x, DPE_y, curr_corr_xy_2d);hold(ax300, 'on');
+
+        scatter3(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx),  50, 'r', 'filled'); 
+        text(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx), '网格最大值');
+
+        scatter3(ax300, dX(org_indx), dY(org_indy), curr_corr_xy_2d(org_indx, org_indy), 50, 'b', 'filled');
+        text(ax300, dX(org_indx), dY(org_indy),curr_corr_xy_2d(org_indx, org_indy), '网格原点');
+
+        xlabel(ax300, 'X'); ylabel(ax300, 'Y'); zlabel(ax300, 'Corr Score');
+        grid(ax300, 'minor'); axis(ax300, 'tight');
+        current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
+        title(ax300, ['第' num2str(current_time) 's的流型图']);
+        view(ax300, -37.5, 30); 
+        hold(ax300, 'off');
+
+        % 网格位置验证图
+
+        scatter(ax301, DPE_x(:), DPE_y(:), 10, 'p', 'filled'); hold(ax301, 'on');
+
+        scatter(ax301, DPEresultInENU(epoch,1), ...
+                DPEresultInENU(epoch,2), 50, 'r', 'filled');
+        text(ax301, DPEresultInENU(epoch,1), DPEresultInENU(epoch,2), 'DPE解算结果');
+
+        scatter(ax301, 0, 0, 50, 'b', 'filled');
+        text(ax301, 0, 0, '网格原点');
+
+        xlabel(ax301, 'X');ylabel(ax301, 'Y');
+        title(ax301, ['第' num2str(current_time) 's的网格图']);
+        grid(ax301, 'minor'); axis(ax301, 'tight'); hold(ax301, 'off');
+
+        pause(1);
+    end
+elseif strcmp(dpe_plan, 'ARS')
+    fig400 = figure(400);
+    ax400 = subplot(1,1,1);
+%     fig401 = figure(401);
+%     ax401 = subplot(1,1,1);
+    corr_shape = size(cost_score);
+    numOfEpoch = corr_shape(1);
+%     for epoch = 1 : numOfEpoch    
+    for epoch = 1
+        cla(ax400);
+        yyaxis(ax400, 'left');
+        plot(ax400, 1:N_Iter, squeeze(delta_in_iteration(epoch, 1, :)), 'LineWidth', 1.0);
+        ylabel(ax400, '$\delta x$ in ECEF(m)', 'Interpreter', 'latex');
+        yyaxis(ax400, 'right');
+        plot(ax400, 1:N_Iter, cost_score(epoch, :), 'LineWidth', 1.0);
+        xlabel(ax400, 'ARS Iteration Step'); ylabel(ax400, 'cost function value');
+        current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval;
+        title(ax400, ['第' num2str(current_time) 's的代价函数图']);
+        grid(ax400, 'minor'); axis(ax400, 'tight'); hold(ax400, 'off');
+        
+        pause(1);
+    end
 end
-
-%% save fig
-figDir = ['saveFig/' dataDir secDir];
-mkdir(figDir);
-saveas(figure(100), [figDir 'ENU']);
-saveas(figure(101), [figDir 'ECEF']);
-saveas(figure(200), [figDir 'DPE_result']);
-saveas(figure(300), [figDir 'manifold']);
-saveas(figure(301), [figDir 'curr_epoch_grid']);
 
 end
