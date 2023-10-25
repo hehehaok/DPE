@@ -132,7 +132,7 @@ class RawFile():
         return
 
     def seek_rawfile(self, S_skip, whence = 1):
-        self.rawfile.seek(S_skip*self.datatype.itemsize,whence)
+        self.rawfile.seek(int(S_skip*self.datatype.itemsize),whence)
         self.rawfile_samp = self.rawfile.tell()/self.datatype.itemsize
         self.rawfile_time = self.rawfile_samp/self.fs
         #print('Rawfile time = %.3fs'%(self.rawfile_time))

@@ -359,6 +359,36 @@ class Channel():
         for name in _CORRELATOR_ATTRIBUTE_NAMES:
             setattr(self.correlator,name,load_dict['correlator_'+name][0,0])
 
+    def load_trk_channels(self, filename, DPE_lead_time=None, param_list=_M_ARRAY_DATA_NAMES):
+        """
+        Load measurement logs from a .mat file.
+
+        note: scalar.LoopFilter history is not loaded, tracking results will deviate
+              slightly at point of load. scalar.LoopFilter converges pretty quickly.
+        """
+
+        if self._measurement_logs_on:
+            print('Warning: Overwriting existing measurement logs.')
+
+        load_dict = sio.loadmat(filename)
+
+        for name in param_list:
+            if hasattr(self, name):
+                tmpself = getattr(self, name)
+                tmploadlen = len(load_dict['channel_array_'+name][0, :])
+                tmpself[0:tmploadlen] = load_dict['channel_array_'+name][0, :]
+                # loads from the front
+            else:
+                setattr(self, name, load_dict['channel_array_'+name][0, :])
+        for name in _CHANNEL_ATTRIBUTE_NAMES:
+            setattr(self, name, load_dict['channel_'+name][0, 0])
+        for name in _CORRELATOR_ATTRIBUTE_NAMES:
+            setattr(self.correlator, name, load_dict['correlator_'+name][0, 0])
+
+        if DPE_lead_time is not None:
+            current_mcount = DPE_lead_time * 1000
+            self._cpcount = current_mcount
+
     def get_Nms_correlation(self,ms,N):
         cp_idc  = np.mod(self.cp[(ms-N):(ms)]-self.ephemerides.timestamp['cp'],20)
         bd_idc, = np.where(np.diff(cp_idc)<0) #index of the last element of the previous navbit

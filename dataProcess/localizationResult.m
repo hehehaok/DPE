@@ -195,8 +195,8 @@ if strcmp(dpe_plan, 'GRID')
     f301 = figure(301);
     ax301 = subplot(1,1,1);
 
-%     for epoch = 1 : numOfEpoch    
-    for epoch = 2
+    for epoch = 1 : numOfEpoch    
+%     for epoch = 2
         cla(ax300, ax301);
 
         curr_corr_pos = corr_pos(epoch, :); % 1*390625
@@ -219,7 +219,8 @@ if strcmp(dpe_plan, 'GRID')
         grid(ax300, 'minor'); axis(ax300, 'tight');
         current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
         title(ax300, ['第' num2str(current_time) 's的流型图']);
-        view(ax300, -37.5, 30); 
+        view(ax300, -37.5+90, 30-20); 
+%         view(ax300, -37.5, 30); 
         hold(ax300, 'off');
 
         % 网格位置验证图
@@ -237,7 +238,7 @@ if strcmp(dpe_plan, 'GRID')
         title(ax301, ['第' num2str(current_time) 's的网格图']);
         grid(ax301, 'minor'); axis(ax301, 'tight'); hold(ax301, 'off');
 
-        pause(1);
+        pause(0.5);
     end
 elseif strcmp(dpe_plan, 'ARS')
     fig400 = figure(400);

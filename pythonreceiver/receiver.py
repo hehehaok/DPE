@@ -1032,7 +1032,7 @@ class Receiver():
         acq_results = load_dic['acq_results']
         prn_list = load_dic['prn_list']
         init_time = load_dic['init_time']
-        self.rawfile.seek_rawfile(init_time[0,0] * 1000 * self.rawfile.S)
+        self.rawfile.seek_rawfile(int(init_time[0,0]) * 1000 * self.rawfile.S)
         for prn_idx, prn in enumerate(prn_list[0]):
             found, rc, ri, fc, fi, cppr, cppm = acq_results[prn_idx, :]
             if found:
@@ -1042,6 +1042,93 @@ class Receiver():
             print('PRN: %d, Found: %s, Code: %.2f chips, Carrier: %.2f cycles, '
                   'Doppler: %.2f Hz, Cppr: %.2f, Cppm: %.2f'
                   % (prn, state, rc, ri, fi, cppr, cppm))
+        return
+
+    def save_trk_results(self, dirname):
+        save_dict = {}
+
+        for name in _M_ARRAY_DATA_NAMES:
+            save_dict['receiver_'+name] = getattr(self, name)
+        for name in _RECEIVER_ATTRIBUTE_NAMES:
+            save_dict['receiver_'+name] = getattr(self, name)
+        for name in _RAWFILE_ATTRIBUTE_NAMES:
+            save_dict['rawfile_'+name] = getattr(self.rawfile, name)
+
+        save_dict['receiver_channels'] = sorted(self.channels.keys())
+
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+
+        sio.savemat(os.path.join(dirname, 'receiver.mat'), save_dict)
+
+        if hasattr(self, "dpe_plan"):
+            with h5py.File(os.path.join(dirname, 'costFunction.h5'), 'w') as f:
+                f.create_dataset('dpe_plan', data=self.dpe_plan)
+                if self.dpe_plan == 'GRID':
+                    f.create_dataset('GRID/corr_pos', data=self.corr_pos)
+                    # f.create_dataset('GRID/corr_vel', data=self.corr_vel)
+                elif self.dpe_plan == 'ARS':
+                    f.create_dataset('ARS/costScore', data=self.costScore)
+                    f.create_dataset('ARS/deltaxt', data=self.deltaxt)
+                    f.create_dataset('ARS/delta_in_iteration', data=self.delta_in_iteration)
+                    f.create_dataset('ARS/dmax', data=self.dmax)
+                    f.create_dataset('ARS/dmin', data=self.dmin)
+                    f.create_dataset('ARS/dmaxt', data=self.dmaxt)
+                    f.create_dataset('ARS/dmint', data=self.dmint)
+                    f.create_dataset('ARS/cf', data=self.cf)
+                    f.create_dataset('ARS/N_Iter', data=self.N_Iter)
+
+        for prn in self.channels:
+            self.channels[prn].save_measurement_logs(os.path.join(dirname, 'channel_%d.mat'%(prn)), os.path.join(dirname, 'channel_%d.csv'%(prn)))
+            # 储存每个通道的跟踪结果
+        return
+
+    def load_trk_results(self, dirname, DPE_lead_time=None, prn_sel_list=None):
+        """
+        Load measurement logs from directory.
+
+        note: scalar.LoopFilter history is not loaded, tracking results will deviate
+              slightly at point of load. scalar.LoopFilter converges pretty quickly.
+        """
+
+        load_dict = sio.loadmat(os.path.join(dirname, 'receiver.mat'))
+
+        for name in _M_ARRAY_DATA_NAMES:
+            setattr(self, name, load_dict['receiver_'+name][0, :])
+        for name in _RECEIVER_ATTRIBUTE_NAMES:
+            setattr(self, name, load_dict['receiver_'+name][0, 0])
+        for name in _RAWFILE_ATTRIBUTE_NAMES:
+            setattr(self.rawfile, name, load_dict['rawfile_'+name][0, 0])
+
+        if DPE_lead_time is not None:
+            current_mcount = DPE_lead_time * 1000
+            self._mcount = current_mcount
+            self.m_samp[current_mcount+1:] = np.nan
+            self.m_time[current_mcount+1:] = np.nan
+
+        self.rawfile.set_rawsnippet_settings(T=self.rawfile.T, T_big=self.rawfile.T_big)
+
+        if np.isnan(self.m_samp[self._mcount]):
+            self.rawfile.seek_rawfile(self.m_samp[self._mcount-1]+self.rawfile.S,0)
+        else:
+            self.rawfile.seek_rawfile(self.m_samp[self._mcount],0)
+        # 载入数据时将文件指针移动到载入数据的结尾处，即例如载入前3秒的数据，则后续处理则从第3秒开始
+
+        prn_list = list(load_dict['receiver_channels'][0])
+        self.add_channels(prn_list)
+        del_list = []
+        if prn_sel_list is not None:
+            for prn in self.channels.keys():
+                if prn not in prn_sel_list:
+                    del_list +=[prn]
+        print del_list
+        self.del_channels(del_list)
+
+        for prn in self.channels:
+            if DPE_lead_time is not None:
+                self.channels[prn].load_trk_channels(os.path.join(dirname, 'channel_%d.mat' % prn), DPE_lead_time)  # 载入每个通道的数据
+            else:
+                self.channels[prn].load_measurement_logs(os.path.join(dirname, 'channel_%d.mat' % prn))  # 载入每个通道的数据
         return
 
     def load_measurement_logs(self, dirname=None, subdir='',prn_sel_list = None):
