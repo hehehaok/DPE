@@ -13,5 +13,18 @@
 - 单个采样点数据大小：8bit
 - 捕获卫星列表：[10, 11, 13, 15, 17, 19, 20, 24, 28, 30]
 - 真实位置：[trueLat, trueLong, trueHeight] = [60.161086788889, 24.545448080556, 54.1640000026673]  
-### 将中频数据的setting文件配置好后，在`DPE_SDR.py`中设置`execfile`对应setting文件然后运行即可
 
+## 运行步骤
+
+1. 配置好需要的环境信息
+2. 在`paramSettings`中创建配置文件，配置好待处理中频数据的数据信息
+3. 修改`DPE_SDR.py`顶部需要执行的配置文件
+4. 运行`DPE_SDR.py`即可
+
+## 目录结构
+
+- dataProcess DPE结果画图
+- paramSettings 用于存放配置文件
+- pre-simulator 标量跟踪结果(运行完一次DPE后生成)
+- post-simulator DPE跟踪结果(运行完一次DPE后生成)
+- pythonreceiver 接收机源码
