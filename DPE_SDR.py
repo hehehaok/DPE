@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-execfile('paramSettings\\setting_finland.py')
+execfile('paramSettings\\setting_texbat_ds4.py')
+# setting_finland.py
+# setting_texbat_ds4.py
 
 ### Main code starts
 from pythonreceiver.libgnss.constants import *
@@ -79,7 +81,7 @@ print ('DP Channels')
 print (DPE_sdr.channels.keys())
 
 DPE_sdr.rawfile.set_rawsnippet_settings(T=0.020, T_big=DPE_interval)  # 每次读取数据设置为0.02秒，即一个解算历元为0.02秒
-DPE_sdr.init_dp()  # DPE初始化
+DPE_sdr.init_dp()  # 标量跟踪结果进行初始化
 print ('Init at', utils.ECEF_to_LLA(DPE_sdr.ekf.X_ECEF))
 
 counter_max = int(DPE_run_time / DPE_sdr.rawfile.T_big)  # DPE总的历元数
@@ -93,7 +95,7 @@ print ('DP Launched')
 start = time.time()
 
 printer.header(csvfile)  # 在表格中打印表头(即第一行的各列标题)
-DPE_sdr.initPlanInfo(counter_max, corr_interval, dpe_plan, grid_param, ars_param)  # 初始化储存DPE相关结果的矩阵
+DPE_sdr.initPlanInfo(counter_max, corr_interval, dpe_plan, grid_param, ars_param)  # 初始化储存DPE相关结果的矩阵以及网格
 for mc in range(counter_max):
     DPE_sdr.dp_track(1)  # DPE解算，每次只处理一个历元
     DPE_sdr.counter += 1

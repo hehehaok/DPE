@@ -347,9 +347,10 @@ class Receiver():
         X_ECI  = utils.ECEF_to_ECI(X_ECEF,t_gps=rxTime_a,t_c=rxTime_a)
         sats_ECI, transmitTime = naveng.get_satellite_positions(self, t_c=rxTime_a)
 
-        if gXk_grid is None: #single receiver mode 我们使用的均为单接收机模式，不用考虑多接收机模式
+        if gXk_grid is None:  # single receiver mode 我们使用的均为单接收机模式，不用考虑多接收机模式
             gX_ECEF_fixed_vel, gX_ECI_fixed_vel, gX_ECEF_fixed_pos, gX_ECI_fixed_pos, bc_pos_corr, bc_vel_fft\
-                = self.navguess.get_nav_guesses(X_ECEF, rxTime_a)
+                = self.navguess.get_nav_xyz_guesses(X_ECEF, rxTime_a)
+                # = self.navguess.get_nav_guesses(X_ECEF, rxTime_a)
             # 以初始化位置为中心，生成各网格处的状态向量
             # 注意这里已经将8维优化降为2个4维优化，即求解位置向量时固定速度向量，求解速度向量时固定位置向量
             # gX_ECEF_fixed_vel, gX_ECI_fixed_vel, gX_ECEF_fixed_pos, gX_ECI_fixed_pos表示各网格处的状态向量，大小为8*390625
@@ -406,6 +407,9 @@ class Receiver():
             bc_rc0_corr = (self.channels[prn].code_corr[bc_rc0_cidx]*(bc_rc0_idx-bc_rc0_fidx)\
                                 +self.channels[prn].code_corr[bc_rc0_fidx]*(bc_rc0_cidx-bc_rc0_idx))  # 1*390625
             bc_pos_corr = bc_pos_corr + np.abs(bc_rc0_corr)**L_power  # 1*390625
+            if counter % self.corr_interval == 0:
+                idx = counter / self.corr_interval
+                self.corr_pos_prn[prn_idx, idx, :] = np.abs(bc_rc0_corr)**L_power
             # 与前面的同理
 
         if gXk_grid is not None:
@@ -427,9 +431,9 @@ class Receiver():
         mean_vel = gX_ECEF_fixed_pos[4:8, np.argmax(bc_vel_fft)]  # 4*1
         # 找到score最大值对应的网格点，该网格点的状态向量即为所求
 
-        temp = np.vstack((mean_pos,mean_vel))-X_ECEF  # 8*1
+        temp = np.vstack((mean_pos, mean_vel))-X_ECEF  # 8*1
         # 作为残差用于后续的扩展卡尔曼滤波
-        return np.vstack((mean_pos,mean_vel))-X_ECEF
+        return np.vstack((mean_pos, mean_vel))-X_ECEF
 
     def dp_measurement_estimation_ARS(self,L_power=1):
 
@@ -937,6 +941,8 @@ class Receiver():
                 f.create_dataset('dpe_plan', data=self.dpe_plan)
                 if self.dpe_plan == 'GRID':
                     f.create_dataset('GRID/corr_pos', data=self.corr_pos)
+                    f.create_dataset('GRID/dpe_prn', data=self.dpe_prn)
+                    f.create_dataset('GRID/corr_pos_prn', data=self.corr_pos_prn)
                     # f.create_dataset('GRID/corr_vel', data=self.corr_vel)
                 elif self.dpe_plan == 'ARS':
                     f.create_dataset('ARS/costScore', data=self.costScore)
@@ -1220,11 +1226,15 @@ class Receiver():
         save_count_max = int(mcount_max / corr_interval)
 
         if dpe_plan == 'GRID':
-            N = grid_param['N']
+            # N = grid_param['N']
             # grid_type = grid_param['grid_type']
             self.navguess = NavigationGuesses()  # 生成DPE网格
+            N = self.navguess.N
             self.corr_pos = np.ones((save_count_max, N))*np.nan
             # self.corr_vel = np.ones((save_count_max, N))*np.nan
+            self.dpe_prn = sorted(self.channels.keys())
+            prn_nums = len(self.channels.keys())
+            self.corr_pos_prn = np.ones((prn_nums, save_count_max, N))*np.nan
         elif dpe_plan == 'ARS':
             self.dmax = ars_param['dmax']
             self.dmin = ars_param['dmin']
@@ -1245,8 +1255,9 @@ class NavigationGuesses():
             gen(self)
         else:
             #self.generate_evenly_spaced()
-            self.generate_spread_grid()
+            # self.generate_spread_grid()
             # self.generate_exstreme_grid()
+            self.generate_xyz_grid()
 
     # predict the state X for the next timestamp
     def generate_evenly_spaced(self):
@@ -1351,6 +1362,38 @@ class NavigationGuesses():
 
         return
 
+    def generate_xyz_grid(self):
+        # dtmp = np.array([-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22])
+        a = np.arange(-100, 101, 10)
+        pos_b = np.arange(125, 501, 25)
+        neg_b = -pos_b[-1::-1]
+        pos_c = np.arange(550, 1001, 50)
+        neg_c = -pos_c[-1::-1]
+        dtmp = np.hstack((neg_c, neg_b, a, pos_b, pos_c))  # 1*grid_num
+        grid_num = len(dtmp)  # grid_num
+
+        dZ = dtmp  # 1*grid_num**1
+        dY = np.kron(dZ, np.ones(grid_num))  # 1*grid_num**2
+        dX = np.kron(dY, np.ones(grid_num))  # 1*grid_num**3
+        dY = np.tile(dY, grid_num)  # 1*grid_num**3
+        dZ = np.tile(dZ, grid_num * grid_num)  # 1*grid_num**3
+        self.dX = np.mat(np.vstack((dX, dY, dZ)))  # 3*grid_num**3
+
+        dT = np.array([0])  # 钟差保持不变
+        self.dT = np.tile(dT, grid_num * grid_num * grid_num)  # 1*grid_num**3
+
+        dZdot = np.array([0])
+        dYdot = np.array([0])
+        dXdot = np.array([0])
+        self.dXdot = np.mat(np.vstack((dXdot, dYdot, dZdot)))
+
+        self.dTdot = np.array([0])
+
+        self.N = len(self.dT)
+        self.Ndot = len(self.dTdot)
+
+        return
+
     def get_nav_guesses(self, X_ECEF, rxTime_a, ECEF_only=False, scale = 1.0):
 
         gX_ECEF  = np.matrix(np.zeros((8,self.N))) # 8*390625
@@ -1378,5 +1421,34 @@ class NavigationGuesses():
 
         bc_pos_corr = np.zeros(self.N)
         bc_vel_fft  = np.zeros(self.N)
+
+        return gX_ECEF_fixed_vel, gX_ECI_fixed_vel, gX_ECEF_fixed_pos, gX_ECI_fixed_pos, bc_pos_corr, bc_vel_fft
+
+    def get_nav_xyz_guesses(self, X_ECEF, rxTime_a, ECEF_only=False, scale=1.0):
+
+        gX_ECEF = np.matrix(np.zeros((8, self.N)))  # 8*N
+
+        X_ENU_trash, R = utils.ECEF_to_ENU(refState=X_ECEF[0:3], curState=X_ECEF[0:3])
+        # 地心地固 -> 东北天 这一步主要是为了得到坐标变换矩阵R
+        # 可以参考GPS/GNSS原理与应用P19
+
+        gX_ECEF[0:3, :] = utils.ENU_to_ECEF(refState=X_ECEF[0:3], diffState=self.dX * scale, R_ECEF2ENU=R)
+        # 东北天 -> 地心地固 得到各个网格点XYZ的地心地固坐标系
+        gX_ECEF[3, :] = X_ECEF[3, 0] + self.dT  # 得到各网格点钟差
+
+        gX_ECEF_fixed_vel = np.matrix(gX_ECEF)  # 8*N
+        gX_ECEF_fixed_vel[4:, :] = X_ECEF[4:, :]
+
+        gX_ECEF_fixed_pos = np.matrix(X_ECEF)   # 8*1
+
+        if ECEF_only:
+            return gX_ECEF_fixed_vel, gX_ECEF_fixed_pos
+
+        # State in ECI, fixed vel
+        gX_ECI_fixed_vel = utils.ECEF_to_ECI(gX_ECEF_fixed_vel, t_gps=rxTime_a, t_c=rxTime_a)
+        gX_ECI_fixed_pos = utils.ECEF_to_ECI(gX_ECEF_fixed_pos, t_gps=rxTime_a, t_c=rxTime_a)
+
+        bc_pos_corr = np.zeros(self.N)
+        bc_vel_fft = np.zeros(1)
 
         return gX_ECEF_fixed_vel, gX_ECI_fixed_vel, gX_ECEF_fixed_pos, gX_ECI_fixed_pos, bc_pos_corr, bc_vel_fft

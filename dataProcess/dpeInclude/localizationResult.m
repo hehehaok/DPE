@@ -16,6 +16,8 @@ dpe_plan = h5read(scoreDir,'/dpe_plan');
 dpe_plan = dpe_plan{1};
 if strcmp(dpe_plan, 'GRID')
     corr_pos = h5read(scoreDir,'/GRID/corr_pos')';
+    dpe_prn = sort(h5read(scoreDir,'/GRID/dpe_prn')');
+    corr_pos_prn = permute(h5read(scoreDir,'/GRID/corr_pos_prn'), [3 2 1]);
 elseif strcmp(dpe_plan, 'ARS')
     cost_score = h5read(scoreDir,'/ARS/costScore')';
     N_Iter = h5read(scoreDir,'/ARS/N_Iter')';
@@ -174,13 +176,13 @@ if strcmp(dpe_plan, 'GRID')
     numOfEpoch = corr_shape(1);
 
     % 网格
-%     a = -100 : 10 : 101;
-%     pos_b = 125 : 25 : 501;
-%     neg_b = -pos_b(end:-1:1);
-%     pos_c = 550 : 50 : 1001;
-%     neg_c = -pos_c(end:-1:1);
-%     dtmp = [neg_c, neg_b, a, pos_b, pos_c];
-    dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
+    a = -100 : 10 : 101;
+    pos_b = 125 : 25 : 501;
+    neg_b = -pos_b(end:-1:1);
+    pos_c = 550 : 50 : 1001;
+    neg_c = -pos_c(end:-1:1);
+    dtmp = [neg_c, neg_b, a, pos_b, pos_c];
+%     dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
 
     numOfGrid = length(dtmp);
     dX = dtmp;
@@ -194,17 +196,15 @@ if strcmp(dpe_plan, 'GRID')
     ax300 = subplot(1,1,1); 
     f301 = figure(301);
     ax301 = subplot(1,1,1);
+    f302 = figure(302);
+    ax302 = subplot(1,1,1);
 
-    for epoch = 1 : numOfEpoch    
-%     for epoch = 2
+%     for epoch = 1 : numOfEpoch    
+    for epoch = 2
         cla(ax300, ax301);
 
         curr_corr_pos = corr_pos(epoch, :); % 1*390625
-        corr_xy_zdt = reshape(curr_corr_pos, [numOfGrid^2, numOfGrid^2]); % 625*625
-        corr_xy = max(corr_xy_zdt); % 1*625
-        curr_corr_xy_2d = flipud(reshape(corr_xy, [numOfGrid, numOfGrid])); % 25*25
-        [max_corr, max_idx] = max(curr_corr_xy_2d,[],'all','linear'); 
-        curr_corr_xy_2d = curr_corr_xy_2d ./ max_corr; % 归一化
+        [curr_corr_xy_2d, max_idx] = grid2xyplane(curr_corr_pos, numOfGrid, 1);
 
         % 绘制当前历元的概率流型图
         meshc(ax300, DPE_x, DPE_y, curr_corr_xy_2d);hold(ax300, 'on');
@@ -219,12 +219,11 @@ if strcmp(dpe_plan, 'GRID')
         grid(ax300, 'minor'); axis(ax300, 'tight');
         current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
         title(ax300, ['第' num2str(current_time) 's的流型图']);
-        view(ax300, -37.5+90, 30-20); 
-%         view(ax300, -37.5, 30); 
+%         view(ax300, -37.5+90, 30-20); 
+        view(ax300, -37.5, 30); 
         hold(ax300, 'off');
 
         % 网格位置验证图
-
         scatter(ax301, DPE_x(:), DPE_y(:), 10, 'p', 'filled'); hold(ax301, 'on');
 
         scatter(ax301, DPEresultInENU(epoch,1), ...
@@ -237,7 +236,24 @@ if strcmp(dpe_plan, 'GRID')
         xlabel(ax301, 'X');ylabel(ax301, 'Y');
         title(ax301, ['第' num2str(current_time) 's的网格图']);
         grid(ax301, 'minor'); axis(ax301, 'tight'); hold(ax301, 'off');
-
+        
+        
+        % 绘制单颗卫星的概率流形图
+%         for prn = 1:length(dpe_prn)
+%         for prn = dpe_prn(1)
+%             curr_corr_pos_prn = corr_pos_prn(prn, epoch, :);
+%             [curr_corr_xy_2d_prn, max_idx] = grid2xyplane(curr_corr_pos_prn, numOfGrid, 0);
+%             curr_corr_xy_2d_prn(curr_corr_xy_2d_prn < 0.99*curr_corr_xy_2d_prn(max_idx)) = 0;
+%             meshc(ax302, DPE_x, DPE_y, curr_corr_xy_2d_prn);hold(ax302, 'on');
+%         end
+        % 测试
+        curr_corr_pos_prn = corr_pos_prn(:, epoch, :);
+        curr_corr_pos_prn = sum(curr_corr_pos_prn, 1);
+        [curr_corr_xy_2d_prn, ~] = grid2xyplane(curr_corr_pos_prn, numOfGrid, 0);
+        meshc(ax302, DPE_x, DPE_y, curr_corr_xy_2d_prn);hold(ax302, 'on');
+        title(ax302, ['第' num2str(current_time) 's的流型图']);
+        view(ax302, -37.5, 30); 
+        hold(ax302, 'off');
         pause(0.5);
     end
 elseif strcmp(dpe_plan, 'ARS')
