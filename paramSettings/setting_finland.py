@@ -5,7 +5,7 @@ import numpy as np
 refname = 'finland_cleanStatic'  # 数据名
 datpath = 'D:/academic/DPEdata/'
 filename = 'cleanStatic_gps_finland.dat'
-descriptor = 'test1025GRID'
+descriptor = '1102_8D_GRID'
 fs = 26e6
 fi = 6.39e6
 datatype = np.dtype([('i', np.int8)])
@@ -29,10 +29,10 @@ ars_param = {'dmax': 10, 'dmin': 1,
 # ************* ARS方法参数 *****************
 
 acq_only = False
-load_acq = False
-load_trk = False
+load_acq = True
+load_trk = True
 prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
 # prn_list = [13, 15, 17, 24, 28] # Simulated
 # prn_list = [15] # Simulated
 
-execfile('paramSettings\\default_settings.py')
+execfile('paramSettings/default_settings.py')

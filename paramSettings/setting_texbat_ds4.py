@@ -35,4 +35,4 @@ load_trk = True
 prn_list = range(1, 33)  # Simulated
 # prn_list = [15] # Simulated
 
-execfile('paramSettings\\default_settings.py')
+execfile('paramSettings/default_settings.py')

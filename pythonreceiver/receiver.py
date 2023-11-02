@@ -943,6 +943,7 @@ class Receiver():
                     f.create_dataset('GRID/corr_pos', data=self.corr_pos)
                     f.create_dataset('GRID/dpe_prn', data=self.dpe_prn)
                     f.create_dataset('GRID/corr_pos_prn', data=self.corr_pos_prn)
+                    f.create_dataset('GRID/axis_1d', data=self.axis_1d)                                                   
                     # f.create_dataset('GRID/corr_vel', data=self.corr_vel)
                 elif self.dpe_plan == 'ARS':
                     f.create_dataset('ARS/costScore', data=self.costScore)
@@ -1230,6 +1231,7 @@ class Receiver():
             # grid_type = grid_param['grid_type']
             self.navguess = NavigationGuesses()  # 生成DPE网格
             N = self.navguess.N
+            self.axis_1d = self.navguess.dtmp                                 
             self.corr_pos = np.ones((save_count_max, N))*np.nan
             # self.corr_vel = np.ones((save_count_max, N))*np.nan
             self.dpe_prn = sorted(self.channels.keys())
@@ -1370,6 +1372,7 @@ class NavigationGuesses():
         pos_c = np.arange(550, 1001, 50)
         neg_c = -pos_c[-1::-1]
         dtmp = np.hstack((neg_c, neg_b, a, pos_b, pos_c))  # 1*grid_num
+        dtmp = dtmp * 8               
         grid_num = len(dtmp)  # grid_num
 
         dZ = dtmp  # 1*grid_num**1
@@ -1391,6 +1394,7 @@ class NavigationGuesses():
 
         self.N = len(self.dT)
         self.Ndot = len(self.dTdot)
+        self.dtmp = dtmp                
 
         return
 

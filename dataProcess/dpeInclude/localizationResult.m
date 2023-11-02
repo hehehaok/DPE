@@ -1,4 +1,4 @@
-function [] = localizationResult(dataDir, secDir, truePosInLLA)
+function [] = localizationResult(dataDir, secDir, truePosInLLA, disp_axis)
 
 %% 读取DPE定位结果文件
 predir   = ['./pre-simulator/' dataDir];
@@ -18,6 +18,7 @@ if strcmp(dpe_plan, 'GRID')
     corr_pos = h5read(scoreDir,'/GRID/corr_pos')';
     dpe_prn = sort(h5read(scoreDir,'/GRID/dpe_prn')');
     corr_pos_prn = permute(h5read(scoreDir,'/GRID/corr_pos_prn'), [3 2 1]);
+    axis_1d = h5read(scoreDir,'/GRID/axis_1d')';												
 elseif strcmp(dpe_plan, 'ARS')
     cost_score = h5read(scoreDir,'/ARS/costScore')';
     N_Iter = h5read(scoreDir,'/ARS/N_Iter')';
@@ -172,17 +173,13 @@ if strcmp(dpe_plan, 'GRID')
     % 目前仅就X/Y两个方向画图，因此需要对Z和dT取所有取值中的最大值
     % 而corr_pos对应各向25个网格共25^4=390625个网格点
     % -------------------------------------------------------------------------
+    disp_axis = sort(disp_axis);
+    
     corr_shape = size(corr_pos); % numOfEpoch*numOfGrid^4
     numOfEpoch = corr_shape(1);
-
+    
     % 网格
-    a = -100 : 10 : 101;
-    pos_b = 125 : 25 : 501;
-    neg_b = -pos_b(end:-1:1);
-    pos_c = 550 : 50 : 1001;
-    neg_c = -pos_c(end:-1:1);
-    dtmp = [neg_c, neg_b, a, pos_b, pos_c];
-%     dtmp = [-22, -19, -16, -13, -10, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 10, 13, 16, 19, 22]*3;
+    dtmp = double(axis_1d);						   
 
     numOfGrid = length(dtmp);
     dX = dtmp;
@@ -197,29 +194,37 @@ if strcmp(dpe_plan, 'GRID')
     f301 = figure(301);
     ax301 = subplot(1,1,1);
     f302 = figure(302);
-    ax302 = subplot(1,1,1);
+    numOfPrn = length(dpe_prn);
+    s = ceil(sqrt(numOfPrn));
+    t = ceil(numOfPrn/s);
+    for jj = 1 : numOfPrn
+            axis_group(jj) = subplot(s, t, jj);
+    end
 
 %     for epoch = 1 : numOfEpoch    
     for epoch = 2
-        cla(ax300, ax301);
+        cla(ax300, ax301, axis_group);
 
         curr_corr_pos = corr_pos(epoch, :); % 1*390625
-        [curr_corr_xy_2d, max_idx] = grid2xyplane(curr_corr_pos, numOfGrid, 1);
+%         [curr_corr_xy_2d, max_idx] = grid2xyplane(curr_corr_pos, numOfGrid, 1);
+        [curr_corr_xy_2d, max_idx] = grid2dplane(curr_corr_pos, numOfGrid, 1, disp_axis);
 
         % 绘制当前历元的概率流型图
-        meshc(ax300, DPE_x, DPE_y, curr_corr_xy_2d);hold(ax300, 'on');
+        surf(ax300, DPE_x, DPE_y, curr_corr_xy_2d);hold(ax300, 'on');
+        colormap(ax300, slanCM('prism2'));
 
         scatter3(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx),  50, 'r', 'filled'); 
         text(ax300, DPE_x(max_idx), DPE_y(max_idx), curr_corr_xy_2d(max_idx), '网格最大值');
 
         scatter3(ax300, dX(org_indx), dY(org_indy), curr_corr_xy_2d(org_indx, org_indy), 50, 'b', 'filled');
         text(ax300, dX(org_indx), dY(org_indy),curr_corr_xy_2d(org_indx, org_indy), '网格原点');
-
-        xlabel(ax300, 'X'); ylabel(ax300, 'Y'); zlabel(ax300, 'Corr Score');
+        
+        xlabel(ax300, disp_axis(1)); ylabel(ax300, disp_axis(2)); zlabel(ax300, 'Corr Score');
         grid(ax300, 'minor'); axis(ax300, 'tight');
         current_time = double(DPE_start_time) + epoch*DPE_corr_save_interval; % DPE解算结果时间坐标轴
         title(ax300, ['第' num2str(current_time) 's的流型图']);
-%         view(ax300, -37.5+90, 30-20); 
+%         view(ax300, -37.5+135, 30-15); 
+%         view(ax300, 140, 0); 
         view(ax300, -37.5, 30); 
         hold(ax300, 'off');
 
@@ -233,29 +238,31 @@ if strcmp(dpe_plan, 'GRID')
         scatter(ax301, 0, 0, 50, 'b', 'filled');
         text(ax301, 0, 0, '网格原点');
 
-        xlabel(ax301, 'X');ylabel(ax301, 'Y');
+        xlabel(ax301, disp_axis(1));ylabel(ax301, disp_axis(2));
         title(ax301, ['第' num2str(current_time) 's的网格图']);
         grid(ax301, 'minor'); axis(ax301, 'tight'); hold(ax301, 'off');
         
         
         % 绘制单颗卫星的概率流形图
-%         for prn = 1:length(dpe_prn)
-%         for prn = dpe_prn(1)
-%             curr_corr_pos_prn = corr_pos_prn(prn, epoch, :);
-%             [curr_corr_xy_2d_prn, max_idx] = grid2xyplane(curr_corr_pos_prn, numOfGrid, 0);
+        for idx = 1 : numOfPrn
+            axis_idx = axis_group(idx);
+            curr_corr_pos_prn = corr_pos_prn(idx, epoch, :);
+%             [curr_corr_xy_2d_prn, ~] = grid2xyplane(curr_corr_pos_prn, numOfGrid, 0);
+            [curr_corr_xy_2d_prn, ~] = grid2dplane(curr_corr_pos_prn, numOfGrid, 0, disp_axis);
 %             curr_corr_xy_2d_prn(curr_corr_xy_2d_prn < 0.99*curr_corr_xy_2d_prn(max_idx)) = 0;
-%             meshc(ax302, DPE_x, DPE_y, curr_corr_xy_2d_prn);hold(ax302, 'on');
-%         end
+            curr_corr_xy_2d_prn = curr_corr_xy_2d_prn ./ max(max(curr_corr_pos));
+            surf(axis_idx, DPE_x, DPE_y, curr_corr_xy_2d_prn);
+            axis(axis_idx, [dtmp(1), dtmp(end), dtmp(1), dtmp(end), 0, 1]);
+            colormap(axis_idx, slanCM('parula'));
+            title(axis_idx, ['PRN' num2str(dpe_prn(idx)) '第' num2str(current_time) 's的流型图']);
+            view(axis_idx, 0, 90); 
+            hold(axis_idx, 'on');
+        end
         % 测试
-        curr_corr_pos_prn = corr_pos_prn(:, epoch, :);
-        curr_corr_pos_prn = sum(curr_corr_pos_prn, 1);
-        [curr_corr_xy_2d_prn, ~] = grid2xyplane(curr_corr_pos_prn, numOfGrid, 0);
-        meshc(ax302, DPE_x, DPE_y, curr_corr_xy_2d_prn);hold(ax302, 'on');
-        title(ax302, ['第' num2str(current_time) 's的流型图']);
-        view(ax302, -37.5, 30); 
-        hold(ax302, 'off');
-        pause(0.5);
+        hold('off');
+        pause(0.2);
     end
+
 elseif strcmp(dpe_plan, 'ARS')
     fig400 = figure(400);
     ax400 = subplot(1,1,1);

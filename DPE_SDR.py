@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-execfile('paramSettings\\setting_texbat_ds4.py')
+execfile('paramSettings/setting_finland.py')
 # setting_finland.py
 # setting_texbat_ds4.py
 
