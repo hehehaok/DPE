@@ -5,7 +5,7 @@ import numpy as np
 refname = 'finland_cleanStatic'  # 数据名
 datpath = 'D:/academic/DPEdata/'
 filename = 'cleanStatic_gps_finland.dat'
-descriptor = '1102_8D_GRID'
+descriptor = '1107_1D_GRID_xy'
 fs = 26e6
 fi = 6.39e6
 datatype = np.dtype([('i', np.int8)])
@@ -14,7 +14,7 @@ start_time = 20
 proc_time = 40
 DPE_start_time = 10
 DPE_lead_time = DPE_start_time - start_time  # must make 3<=DPE_lead_time<=proc_time
-DPE_run_time = 1
+DPE_run_time = 0.1
 DPE_interval = 0.02  # 进行DPE的间隔
 DPE_corr_save_interval = 0.02  # 保存DPE流形结果图的间隔
 
@@ -31,7 +31,7 @@ ars_param = {'dmax': 10, 'dmin': 1,
 acq_only = False
 load_acq = True
 load_trk = True
-prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30] # Simulated
+prn_list = [10, 11, 13, 15, 17, 19, 20, 24, 28, 30]  # Simulated
 # prn_list = [13, 15, 17, 24, 28] # Simulated
 # prn_list = [15] # Simulated
 

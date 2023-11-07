@@ -206,7 +206,6 @@ if strcmp(dpe_plan, 'GRID')
         cla(ax300, ax301, axis_group);
 
         curr_corr_pos = corr_pos(epoch, :); % 1*390625
-%         [curr_corr_xy_2d, max_idx] = grid2xyplane(curr_corr_pos, numOfGrid, 1);
         [curr_corr_xy_2d, max_idx] = grid2dplane(curr_corr_pos, numOfGrid, 1, disp_axis);
 
         % 绘制当前历元的概率流型图
@@ -247,8 +246,7 @@ if strcmp(dpe_plan, 'GRID')
         for idx = 1 : numOfPrn
             axis_idx = axis_group(idx);
             curr_corr_pos_prn = corr_pos_prn(idx, epoch, :);
-%             [curr_corr_xy_2d_prn, ~] = grid2xyplane(curr_corr_pos_prn, numOfGrid, 0);
-            [curr_corr_xy_2d_prn, ~] = grid2dplane(curr_corr_pos_prn, numOfGrid, 0, disp_axis);
+            [curr_corr_xy_2d_prn, ~] = grid2dPrnPlane(curr_corr_pos_prn, numOfGrid, 0, disp_axis);
 %             curr_corr_xy_2d_prn(curr_corr_xy_2d_prn < 0.99*curr_corr_xy_2d_prn(max_idx)) = 0;
             curr_corr_xy_2d_prn = curr_corr_xy_2d_prn ./ max(max(curr_corr_pos));
             surf(axis_idx, DPE_x, DPE_y, curr_corr_xy_2d_prn);

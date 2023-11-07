@@ -399,17 +399,19 @@ class Receiver():
             bc_rc           = bc_codeFracDiff*F_CA  # 1*390625
             # 最终对应论文P13 list2.2的第1个式子
 
-            bc_rc0      = bc_rc - self.channels[prn].rc[mc]  # 1*390625
+            bc_rc0 = bc_rc - self.channels[prn].rc[mc]  # 1*390625
 
-            bc_rc0_idx  = (self.rawfile.fs/self.channels[prn].fc[mc])*(-bc_rc0)+self.rawfile.S/2.0  # 1*390625
+            bc_rc0_idx = (self.rawfile.fs/self.channels[prn].fc[mc])*(-bc_rc0)+self.rawfile.S/2.0  # 1*390625
             bc_rc0_cidx = np.floor(bc_rc0_idx+1).astype(np.int32)  # 1*390625
             bc_rc0_fidx = np.floor(bc_rc0_idx).astype(np.int32)  # 1*390625
-            bc_rc0_corr = (self.channels[prn].code_corr[bc_rc0_cidx]*(bc_rc0_idx-bc_rc0_fidx)\
-                                +self.channels[prn].code_corr[bc_rc0_fidx]*(bc_rc0_cidx-bc_rc0_idx))  # 1*390625
+            bc_rc0_corr = (self.channels[prn].code_corr[bc_rc0_cidx]*(bc_rc0_idx-bc_rc0_fidx) +
+                           self.channels[prn].code_corr[bc_rc0_fidx]*(bc_rc0_cidx-bc_rc0_idx))  # 1*390625
             bc_pos_corr = bc_pos_corr + np.abs(bc_rc0_corr)**L_power  # 1*390625
             if counter % self.corr_interval == 0:
                 idx = counter / self.corr_interval
                 self.corr_pos_prn[prn_idx, idx, :] = np.abs(bc_rc0_corr)**L_power
+                self.corr_pos_rc[prn_idx, idx, :] = bc_rc0_idx
+                self.corr_code_prn[prn_idx, idx, :] = np.abs(self.channels[prn].code_corr)
             # 与前面的同理
 
         if gXk_grid is not None:
@@ -940,10 +942,13 @@ class Receiver():
             with h5py.File(os.path.join(dirname, subdir, 'costFunction.h5'), 'w') as f:
                 f.create_dataset('dpe_plan', data=self.dpe_plan)
                 if self.dpe_plan == 'GRID':
-                    f.create_dataset('GRID/corr_pos', data=self.corr_pos)
-                    f.create_dataset('GRID/dpe_prn', data=self.dpe_prn)
-                    f.create_dataset('GRID/corr_pos_prn', data=self.corr_pos_prn)
-                    f.create_dataset('GRID/axis_1d', data=self.axis_1d)                                                   
+                    f.create_dataset('GRID/corr_pos', data=self.corr_pos)  # 概率流形相关值
+                    f.create_dataset('GRID/dpe_prn', data=self.dpe_prn)  # DPE的卫星序号
+                    f.create_dataset('GRID/corr_pos_prn', data=self.corr_pos_prn)  # 单颗卫星的相关值
+                    f.create_dataset('GRID/axis_1d', data=self.axis_1d)  # 一维网格
+                    f.create_dataset('PRN/code_idc', data=self.rawfile.code_fftidc)  # 伪码自相关三角函数索引
+                    f.create_dataset('PRN/code_corr_prn', data=self.corr_code_prn)  # 各卫星的伪码自相关三角函数
+                    f.create_dataset('PRN/corr_pos_prn_rc', data=self.corr_pos_rc)  # 各卫星在各网格点的码相位
                     # f.create_dataset('GRID/corr_vel', data=self.corr_vel)
                 elif self.dpe_plan == 'ARS':
                     f.create_dataset('ARS/costScore', data=self.costScore)
@@ -1236,7 +1241,9 @@ class Receiver():
             # self.corr_vel = np.ones((save_count_max, N))*np.nan
             self.dpe_prn = sorted(self.channels.keys())
             prn_nums = len(self.channels.keys())
-            self.corr_pos_prn = np.ones((prn_nums, save_count_max, N))*np.nan
+            self.corr_pos_prn = np.ones((prn_nums, save_count_max, N)) * np.nan
+            self.corr_pos_rc = np.ones((prn_nums, save_count_max, N)) * np.nan
+            self.corr_code_prn = np.ones((prn_nums, save_count_max, self.rawfile.S_big)) * np.nan
         elif dpe_plan == 'ARS':
             self.dmax = ars_param['dmax']
             self.dmin = ars_param['dmin']
@@ -1259,7 +1266,8 @@ class NavigationGuesses():
             #self.generate_evenly_spaced()
             # self.generate_spread_grid()
             # self.generate_exstreme_grid()
-            self.generate_xyz_grid()
+            # self.generate_xyz_grid()
+            self.generate_xy_grid()
 
     # predict the state X for the next timestamp
     def generate_evenly_spaced(self):
@@ -1372,7 +1380,7 @@ class NavigationGuesses():
         pos_c = np.arange(550, 1001, 50)
         neg_c = -pos_c[-1::-1]
         dtmp = np.hstack((neg_c, neg_b, a, pos_b, pos_c))  # 1*grid_num
-        dtmp = dtmp * 8               
+        dtmp = dtmp * 1
         grid_num = len(dtmp)  # grid_num
 
         dZ = dtmp  # 1*grid_num**1
@@ -1395,6 +1403,41 @@ class NavigationGuesses():
         self.N = len(self.dT)
         self.Ndot = len(self.dTdot)
         self.dtmp = dtmp                
+
+        return
+
+    def generate_xy_grid(self):
+        a = np.arange(-100, 101, 10)
+        pos_b = np.arange(125, 501, 25)
+        neg_b = -pos_b[-1::-1]
+        pos_c = np.arange(550, 1001, 50)
+        neg_c = -pos_c[-1::-1]
+        dtmp = np.hstack((neg_c, neg_b, a, pos_b, pos_c))  # 1*grid_num
+        dtmp = dtmp * 1
+        grid_num = len(dtmp)  # grid_num
+
+
+        dY = dtmp  # 1*grid_num**1
+        dX = np.kron(dY, np.ones(grid_num))  # 1*grid_num**2
+        dY = np.tile(dY, grid_num)  # 1*grid_num**2
+
+        dZ = np.array([0])  # 高度保持不变
+        dZ = np.tile(dZ, grid_num * grid_num)  # 1*grid_num**2
+        self.dX = np.mat(np.vstack((dX, dY, dZ)))  # 3*grid_num**2
+
+        dT = np.array([0])  # 钟差保持不变
+        self.dT = np.tile(dT, grid_num * grid_num)  # 1*grid_num**3
+
+        dZdot = np.array([0])
+        dYdot = np.array([0])
+        dXdot = np.array([0])
+        self.dXdot = np.mat(np.vstack((dXdot, dYdot, dZdot)))
+
+        self.dTdot = np.array([0])
+
+        self.N = len(self.dT)
+        self.Ndot = len(self.dTdot)
+        self.dtmp = dtmp
 
         return
 
